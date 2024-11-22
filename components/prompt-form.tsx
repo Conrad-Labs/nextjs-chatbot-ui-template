@@ -17,7 +17,7 @@ import { Chat } from '@/lib/types'
 import { saveChat } from '@/app/actions'
 import { addMessage } from '@/lib/redux/slice/chat.slice'
 import { useDispatch, useSelector } from 'react-redux'
-import OpenAI from "openai";
+import OpenAI from 'openai'
 
 const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
 const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
@@ -30,14 +30,14 @@ export function PromptForm({
   setInput: (value: string) => void
 }) {
   const router = useRouter()
-  const openai = new OpenAI({ 
+  const openai = new OpenAI({
     apiKey: openAIApiKey,
-    dangerouslyAllowBrowser: true 
+    dangerouslyAllowBrowser: true
   })
   const { formRef, onKeyDown } = useEnterSubmit()
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
   const dispatch = useDispatch()
-  const messages = useSelector((state:any) => state.chat.messages)
+  const messages = useSelector((state: any) => state.chat.messages)
 
   async function submitUserMessage(chatId: string, value: string) {
     const createdAt = new Date()
@@ -53,68 +53,53 @@ export function PromptForm({
     }
     await saveChat(chat)
 
-    // const emptyThread = await openai.beta.threads.create();
-    // console.log(emptyThread.id);
+    const emptyThread = await openai.beta.threads.create()
 
-    const emptyThread = {
-      id: "thread_sN57ma9sJMTs2iaJqGZO2vdY"
-    }
+    await openai.beta.threads.messages.create(emptyThread.id, {
+      role: 'user',
+      content: value
+    })
 
-    const threadMessages = await openai.beta.threads.messages.create(
-      emptyThread.id,
-      { role: "user", content: value }
-    );
+    const stream = await openai.beta.threads.runs.stream(emptyThread.id, {
+      assistant_id: openAIAssistantId || '',
+      stream: true
+    })
 
-    let run = await openai.beta.threads.runs.createAndPoll(
-      emptyThread.id,
-      { 
-        assistant_id: openAIAssistantId || "",
-        instructions: `
-        You are a course catalogue assistant for Uptime Institute. You are provided multiple files that holds details about the objectives of the CDCDP course, you are supposed to answer all your questions according to the details within the file. 
+    let assistantResponse = ''
+    const newAssistantChatId = nanoid()
 
-        ----------------------------------
-        ABOUT UPTIME INSTITUTE
-        ----------------------------------
-        Uptime Institute is an organization that specializes in improving the reliability, efficiency, and performance of critical infrastructure, primarily data centers. It is well known for creating and managing the “Tier Standard” certification system, which is used to rate data centers based on their ability to sustain operations, manage risk, and provide continuous availability.
+    for await (const message of stream) {
+      if (
+        message.event === 'thread.message.delta' &&
+        message.data.delta.content
+      ) {
+        const text = (message.data.delta.content[0] as any).text.value
+          ? (message.data.delta.content[0] as any).text.value
+          : ''
+        assistantResponse += text
 
-        -----------------------------------
-        Example Questions / Context
-        -----------------------------------
-        Search for the questions from the attached files, the questions can be in the following format:
-
-        # what is uptime institute
-        Uptime Institute is an organization that specializes in improving the reliability, efficiency, and performance of critical infrastructure, primarily data centers.
-
-        # what is the course about
-        The Certified Data Centre Design Professional (CDCDP®) course focuses on equipping participants with the expertise to design efficient, reliable, and scalable data center infrastructures.
-
-        # what is the objectives for the course
-        The program covers various essential topics, such as power and cooling systems, cabling, security, fire protection, and data center management. It also addresses design considerations from the initial site selection to the implementation phase.
-        ---------------------------------------
-
-        If you cant find any match within the files then excuse yourself from any other conversation that is not about uptime institute and CDCDP course. Respond as follows: "I apologize but as Uptime bot I can only guide you regarding the CDCDP course outline and objectives."
-        `
+        dispatch(
+          addMessage({
+            id: newAssistantChatId,
+            message: assistantResponse,
+            role: 'assistant'
+          })
+        )
       }
-    );
-    
-    if (run.status === 'completed') {
-      const messages = await openai.beta.threads.messages.list(
-        run.thread_id
-      );
-
-      const newAssistantChatId = nanoid()
-      const reversedMessages = messages.data.reverse();
-      // @ts-ignore
-      const assistantResponse = reversedMessages[reversedMessages.length-1].content[0].text.value;
-
-      dispatch(addMessage({ id: newAssistantChatId, message: assistantResponse, role: 'assistant' })) 
-    } else {
-      console.error(run.status);
     }
-    
+
+    // final update after the stream ends
+    dispatch(
+      addMessage({
+        id: newAssistantChatId,
+        message: assistantResponse,
+        role: 'assistant'
+      })
+    )
+
     return {
       id: chatId,
-      message: value, 
+      message: value,
       role: 'user'
     }
   }
@@ -141,10 +126,10 @@ export function PromptForm({
         setInput('')
         if (!value) return
 
-        dispatch(addMessage({ id:chatId, message: value, role: 'user' }))    
+        dispatch(addMessage({ id: chatId, message: value, role: 'user' }))
 
         // Submit and get response message
-        const responseMessage = await submitUserMessage(chatId, value)
+        await submitUserMessage(chatId, value)
       }}
     >
       <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md sm:border sm:px-12">
