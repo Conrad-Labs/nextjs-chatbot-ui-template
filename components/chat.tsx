@@ -15,7 +15,8 @@ import { useDispatch, useSelector } from 'react-redux'
 import {
   addMessage,
   ChatMessage,
-  setThreadId
+  setThreadId,
+  removeMessages
 } from '@/lib/redux/slice/chat.slice'
 
 export interface ChatProps extends React.ComponentProps<'div'> {
@@ -41,6 +42,11 @@ export function Chat({
   const dispatch = useDispatch()
 
   const [_, setNewChatId] = useLocalStorage('newChatId', id)
+
+  useEffect(() => {
+    dispatch(setThreadId(''))
+    dispatch(removeMessages())
+  }, [path])
 
   useEffect(() => {
     dispatch(setThreadId(threadId))

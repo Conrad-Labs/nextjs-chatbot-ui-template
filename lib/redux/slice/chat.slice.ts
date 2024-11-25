@@ -25,9 +25,12 @@ const chatSlice = createSlice({
     },
     setThreadId: (state, action) => {
       state.threadId = action.payload
+    },
+    removeMessages: (state) => {
+      state.messages = []
     }
   },
 });
 
-export const { addMessage, setThreadId } = chatSlice.actions;
+export const { addMessage, setThreadId, removeMessages } = chatSlice.actions;
 export default chatSlice.reducer;
