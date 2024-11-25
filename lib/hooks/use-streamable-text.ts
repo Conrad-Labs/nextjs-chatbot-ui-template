@@ -7,6 +7,12 @@ export const useStreamableText = (
   const [rawContent, setRawContent] = useState(
     typeof content === 'string' ? content : ''
   )
+  
+  useEffect(() => {
+    if (typeof content === 'string') {
+      setRawContent(content)
+    }
+  }, [content])
 
   useEffect(() => {
     ;(async () => {

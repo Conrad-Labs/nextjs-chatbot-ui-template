@@ -149,7 +149,7 @@ export function PromptForm({
         dispatch(addMessage({ id: messageId, message: value, role: 'user' }))
 
         // Submit and get response message
-        const responseMessage = await submitUserMessage(messageId, value)
+        await submitUserMessage(messageId, value)
       }}
     >
       <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md sm:border sm:px-12">

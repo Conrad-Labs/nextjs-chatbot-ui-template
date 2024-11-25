@@ -14,13 +14,19 @@ const chatSlice = createSlice({
   reducers: {
     addMessage: (state, action) => {
       const { id, message, role } = action.payload;
-      const messageExists = state.messages.some((msg) => msg.id === id);
-      if (!messageExists) {
+      const existingMessageIndex = state.messages.findIndex((msg) => msg.id === id);
+      if (existingMessageIndex !== -1) {
+        state.messages = [
+          ...state.messages.slice(0, existingMessageIndex),
+          { ...state.messages[existingMessageIndex], message },
+          ...state.messages.slice(existingMessageIndex + 1),
+        ];
+      } else {
         state.messages.push({
           id,
           message,
-          role,
-        });
+          role
+        })
       }
     },
     setThreadId: (state, action) => {
