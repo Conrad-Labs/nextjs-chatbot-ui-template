@@ -12,109 +12,114 @@ import {
 } from '@/components/ui/tooltip'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { nanoid } from 'nanoid'
-import { useRouter } from 'next/navigation'
+import { Session } from '@/lib/types'
+import { usePathname, useRouter } from 'next/navigation'
 import { Chat } from '@/lib/types'
-import { saveChat } from '@/app/actions'
-import { addMessage } from '@/lib/redux/slice/chat.slice'
+import { getChat, saveChat } from '@/app/actions'
+import { addMessage, setThreadId } from '@/lib/redux/slice/chat.slice'
 import { useDispatch, useSelector } from 'react-redux'
-import OpenAI from "openai";
+import OpenAI from 'openai'
 
 const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
 const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
 
 export function PromptForm({
   input,
-  setInput
+  setInput,
+  session,
+  id
 }: {
   input: string
   setInput: (value: string) => void
+  session?: Session
+  id?: string
 }) {
   const router = useRouter()
-  const openai = new OpenAI({ 
+  const openai = new OpenAI({
     apiKey: openAIApiKey,
-    dangerouslyAllowBrowser: true 
+    dangerouslyAllowBrowser: true
   })
   const { formRef, onKeyDown } = useEnterSubmit()
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
   const dispatch = useDispatch()
-  const messages = useSelector((state:any) => state.chat.messages)
+  const messages = useSelector((state: any) => state.chat.messages)
+  const threadId = useSelector((state: any) => state.chat.threadId)
+  const pathname = usePathname()
 
-  async function submitUserMessage(chatId: string, value: string) {
+  async function submitUserMessage(messageId: string, value: string) {
     const createdAt = new Date()
-    const path = `/chat/${chatId}`
     const firstMessageContent = value as string
     const title = firstMessageContent.substring(0, 100)
 
-    const chat: Chat = {
-      id: chatId,
-      title,
-      createdAt,
-      path
-    }
-    await saveChat(chat)
+    let currentThreadId = threadId
+    let chat: Chat
 
-    // const emptyThread = await openai.beta.threads.create();
-    // console.log(emptyThread.id);
+    if (!threadId) {
+      const emptyThread = await openai.beta.threads.create()
+      dispatch(setThreadId(emptyThread.id))
+      currentThreadId = emptyThread.id
 
-    const emptyThread = {
-      id: "thread_sN57ma9sJMTs2iaJqGZO2vdY"
-    }
-
-    const threadMessages = await openai.beta.threads.messages.create(
-      emptyThread.id,
-      { role: "user", content: value }
-    );
-
-    let run = await openai.beta.threads.runs.createAndPoll(
-      emptyThread.id,
-      { 
-        assistant_id: openAIAssistantId || "",
-        instructions: `
-        You are a course catalogue assistant for Uptime Institute. You are provided multiple files that holds details about the objectives of the CDCDP course, you are supposed to answer all your questions according to the details within the file. 
-
-        ----------------------------------
-        ABOUT UPTIME INSTITUTE
-        ----------------------------------
-        Uptime Institute is an organization that specializes in improving the reliability, efficiency, and performance of critical infrastructure, primarily data centers. It is well known for creating and managing the “Tier Standard” certification system, which is used to rate data centers based on their ability to sustain operations, manage risk, and provide continuous availability.
-
-        -----------------------------------
-        Example Questions / Context
-        -----------------------------------
-        Search for the questions from the attached files, the questions can be in the following format:
-
-        # what is uptime institute
-        Uptime Institute is an organization that specializes in improving the reliability, efficiency, and performance of critical infrastructure, primarily data centers.
-
-        # what is the course about
-        The Certified Data Centre Design Professional (CDCDP®) course focuses on equipping participants with the expertise to design efficient, reliable, and scalable data center infrastructures.
-
-        # what is the objectives for the course
-        The program covers various essential topics, such as power and cooling systems, cabling, security, fire protection, and data center management. It also addresses design considerations from the initial site selection to the implementation phase.
-        ---------------------------------------
-
-        If you cant find any match within the files then excuse yourself from any other conversation that is not about uptime institute and CDCDP course. Respond as follows: "I apologize but as Uptime bot I can only guide you regarding the CDCDP course outline and objectives."
-        `
+      chat = {
+        id: id as string,
+        title,
+        createdAt,
+        path: `/chat/${id}`,
+        messages: [{ id: messageId, message: value, role: 'user' }],
+        threadId: currentThreadId
       }
-    );
-    
-    if (run.status === 'completed') {
-      const messages = await openai.beta.threads.messages.list(
-        run.thread_id
-      );
+    } else {
+      chat = (await getChat(id as string, session?.user?.id as string)) as Chat
+      if (!chat) {
+        throw new Error('Chat not found!')
+      }
+
+      chat.messages = [
+        ...(chat.messages || []),
+        {
+          id: messageId,
+          role: 'user',
+          message: value
+        }
+      ]
+      currentThreadId = chat.threadId
+    }
+
+    await openai.beta.threads.messages.create(currentThreadId, {
+      role: 'user',
+      content: value
+    })
+
+    let run = await openai.beta.threads.runs.createAndPoll(currentThreadId, {
+      assistant_id: openAIAssistantId || ''
+    })
+
+    if (run.status === 'completed' && chat) {
+      const messages = await openai.beta.threads.messages.list(run.thread_id)
 
       const newAssistantChatId = nanoid()
-      const reversedMessages = messages.data.reverse();
-      // @ts-ignore
-      const assistantResponse = reversedMessages[reversedMessages.length-1].content[0].text.value;
+      const reversedMessages = messages.data.reverse()
+      const assistantResponse =
+        // @ts-ignore
+        reversedMessages[reversedMessages.length - 1].content[0].text.value
 
-      dispatch(addMessage({ id: newAssistantChatId, message: assistantResponse, role: 'assistant' })) 
+      const assistantMessage = {
+        id: newAssistantChatId,
+        message: assistantResponse,
+        role: 'assistant'
+      }
+      dispatch(addMessage(assistantMessage))
+      chat.messages
+        ? chat.messages.push(assistantMessage)
+        : (chat.messages = [assistantMessage])
     } else {
-      console.error(run.status);
+      console.error(run.status)
     }
-    
+
+    await saveChat(chat)
+
     return {
-      id: chatId,
-      message: value, 
+      id: messageId,
+      message: value,
       role: 'user'
     }
   }
@@ -130,7 +135,7 @@ export function PromptForm({
       ref={formRef}
       onSubmit={async (e: any) => {
         e.preventDefault()
-        const chatId = nanoid()
+        const messageId = nanoid()
 
         // Blur focus on mobile
         if (window.innerWidth < 600) {
@@ -141,10 +146,10 @@ export function PromptForm({
         setInput('')
         if (!value) return
 
-        dispatch(addMessage({ id:chatId, message: value, role: 'user' }))    
+        dispatch(addMessage({ id: messageId, message: value, role: 'user' }))
 
         // Submit and get response message
-        const responseMessage = await submitUserMessage(chatId, value)
+        const responseMessage = await submitUserMessage(messageId, value)
       }}
     >
       <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md sm:border sm:px-12">

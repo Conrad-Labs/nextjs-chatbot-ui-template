@@ -14,14 +14,24 @@ export interface ChatList {
 }
 
 export function ChatList({ initialMessages, session, isShared }: ChatList) {
-  const messages = useSelector((state:any) => state.chat.messages)
+  const messages = useSelector((state: any) => state.chat.messages)
 
   // if (!messages?.length) {
   //   return null
   // }
 
-  const combinedMessages = (initialMessages && initialMessages?.length > 0)? [...initialMessages, ...messages]: [...messages];
-  const isLastMessageFromUser = combinedMessages[combinedMessages.length -1].role === "user"
+  const combinedMessages =
+    initialMessages && initialMessages.length > 0
+      ? [
+          ...Array.from(
+            new Map(
+              [...initialMessages, ...messages].map(msg => [msg.id, msg])
+            ).values()
+          )
+        ]
+      : [...messages]
+  const isLastMessageFromUser =
+    combinedMessages[combinedMessages.length - 1].role === 'user'
 
   return (
     <div className="relative mx-auto max-w-2xl px-4">
@@ -49,19 +59,24 @@ export function ChatList({ initialMessages, session, isShared }: ChatList) {
         </>
       ) : null}
 
-      { combinedMessages.map((item: ChatMessage, index: number) => (
+      {combinedMessages.map((item: ChatMessage, index: number) => (
         <div key={item.id}>
-          { item.role === "user"? 
-          <>
-            <UserMessage>{item.message}</UserMessage>
-            { 
-              isLastMessageFromUser && index === combinedMessages.length -1 && <div className='mt-4'>
-                <IconSpinner></IconSpinner>
-              </div>
-            }
-          </>: 
-          <BotMessage content={item.message}></BotMessage> } 
-          {index < combinedMessages.length - 1 && <Separator className="my-4" />}
+          {item.role === 'user' ? (
+            <>
+              <UserMessage>{item.message}</UserMessage>
+              {isLastMessageFromUser &&
+                index === combinedMessages.length - 1 && (
+                  <div className="mt-4">
+                    <IconSpinner></IconSpinner>
+                  </div>
+                )}
+            </>
+          ) : (
+            <BotMessage content={item.message}></BotMessage>
+          )}
+          {index < combinedMessages.length - 1 && (
+            <Separator className="my-4" />
+          )}
         </div>
       ))}
     </div>

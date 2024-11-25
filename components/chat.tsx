@@ -11,23 +11,43 @@ import { Message, Session } from '@/lib/types'
 import { usePathname, useRouter } from 'next/navigation'
 import { useScrollAnchor } from '@/lib/hooks/use-scroll-anchor'
 import { toast } from 'sonner'
-import { useSelector } from 'react-redux'
-import { ChatMessage } from '@/lib/redux/slice/chat.slice'
+import { useDispatch, useSelector } from 'react-redux'
+import {
+  addMessage,
+  ChatMessage,
+  setThreadId
+} from '@/lib/redux/slice/chat.slice'
 
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages: ChatMessage[]
   id?: string
   session?: Session
   missingKeys: string[]
+  threadId: string
 }
 
-export function Chat({ id, initialMessages, className, session, missingKeys }: ChatProps) {
+export function Chat({
+  id,
+  initialMessages,
+  className,
+  session,
+  missingKeys,
+  threadId
+}: ChatProps) {
   const router = useRouter()
   const path = usePathname()
   const [input, setInput] = useState('')
-  const messages = useSelector((state:any) => state.chat.messages)
+  const messages = useSelector((state: any) => state.chat.messages)
+  const dispatch = useDispatch()
 
   const [_, setNewChatId] = useLocalStorage('newChatId', id)
+
+  useEffect(() => {
+    dispatch(setThreadId(threadId))
+    initialMessages.forEach((message: ChatMessage) => {
+      dispatch(addMessage(message))
+    })
+  }, [initialMessages])
 
   useEffect(() => {
     if (session?.user) {
@@ -67,7 +87,11 @@ export function Chat({ id, initialMessages, className, session, missingKeys }: C
         ref={messagesRef}
       >
         {messages?.length ? (
-          <ChatList initialMessages={initialMessages} isShared={false} session={session} />
+          <ChatList
+            initialMessages={initialMessages}
+            isShared={false}
+            session={session}
+          />
         ) : (
           <EmptyScreen />
         )}
@@ -79,6 +103,7 @@ export function Chat({ id, initialMessages, className, session, missingKeys }: C
         setInput={setInput}
         isAtBottom={isAtBottom}
         scrollToBottom={scrollToBottom}
+        session={session}
       />
     </div>
   )

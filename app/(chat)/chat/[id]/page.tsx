@@ -41,7 +41,10 @@ export default async function ChatPage({ params }: ChatPageProps) {
   }
 
   const userId = session.user.id as string
-  const chat: UserChatMessage | null | { error: string} = await getChat(params.id, userId)
+  const chat: UserChatMessage | null | { error: string } = await getChat(
+    params.id,
+    userId
+  )
 
   if (!chat || 'error' in chat) {
     redirect('/')
@@ -50,20 +53,26 @@ export default async function ChatPage({ params }: ChatPageProps) {
       notFound()
     }
 
-    const {id, title} = chat as UserChatMessage
-    const updatedChats: ChatMessage[] = [{
-      id: id,
-      message: title,
-      role: "user"
-    }]
+    const { id, title } = chat as UserChatMessage
+    const updatedChats: ChatMessage[] = chat.messages
+      ? chat.messages
+      : [
+          {
+            id: id,
+            message: title,
+            role: 'user'
+          }
+        ]
+    const threadId = chat.threadId
 
     return (
-        <Chat
-          id={chat.id}
-          session={session}
-          initialMessages={updatedChats}
-          missingKeys={missingKeys}
-        />
+      <Chat
+        id={chat.id}
+        session={session}
+        initialMessages={updatedChats}
+        missingKeys={missingKeys}
+        threadId={threadId}
+      />
     )
   }
 }
