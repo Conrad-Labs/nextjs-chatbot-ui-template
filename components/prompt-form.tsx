@@ -12,10 +12,11 @@ import {
 } from '@/components/ui/tooltip'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { nanoid } from 'nanoid'
-import { useRouter } from 'next/navigation'
+import { Session } from '@/lib/types'
+import { usePathname, useRouter } from 'next/navigation'
 import { Chat } from '@/lib/types'
-import { saveChat } from '@/app/actions'
-import { addMessage } from '@/lib/redux/slice/chat.slice'
+import { getChat, saveChat } from '@/app/actions'
+import { addMessage, setThreadId } from '@/lib/redux/slice/chat.slice'
 import { useDispatch, useSelector } from 'react-redux'
 import OpenAI from 'openai'
 
@@ -24,10 +25,14 @@ const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
 
 export function PromptForm({
   input,
-  setInput
+  setInput,
+  session,
+  id
 }: {
   input: string
   setInput: (value: string) => void
+  session?: Session
+  id?: string
 }) {
   const router = useRouter()
   const openai = new OpenAI({
@@ -38,67 +43,82 @@ export function PromptForm({
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
   const dispatch = useDispatch()
   const messages = useSelector((state: any) => state.chat.messages)
+  const threadId = useSelector((state: any) => state.chat.threadId)
+  const pathname = usePathname()
 
-  async function submitUserMessage(chatId: string, value: string) {
+  async function submitUserMessage(messageId: string, value: string) {
     const createdAt = new Date()
-    const path = `/chat/${chatId}`
     const firstMessageContent = value as string
     const title = firstMessageContent.substring(0, 100)
 
-    const chat: Chat = {
-      id: chatId,
-      title,
-      createdAt,
-      path
+    let currentThreadId = threadId
+    let chat: Chat
+
+    if (!threadId) {
+      const emptyThread = await openai.beta.threads.create()
+      dispatch(setThreadId(emptyThread.id))
+      currentThreadId = emptyThread.id
+
+      chat = {
+        id: id as string,
+        title,
+        createdAt,
+        path: `/chat/${id}`,
+        messages: [{ id: messageId, message: value, role: 'user' }],
+        threadId: currentThreadId
+      }
+    } else {
+      chat = (await getChat(id as string, session?.user?.id as string)) as Chat
+      if (!chat) {
+        throw new Error('Chat not found!')
+      }
+
+      chat.messages = [
+        ...(chat.messages || []),
+        {
+          id: messageId,
+          role: 'user',
+          message: value
+        }
+      ]
+      currentThreadId = chat.threadId
     }
-    await saveChat(chat)
 
-    const emptyThread = await openai.beta.threads.create()
-
-    await openai.beta.threads.messages.create(emptyThread.id, {
+    await openai.beta.threads.messages.create(currentThreadId, {
       role: 'user',
       content: value
     })
 
-    const stream = await openai.beta.threads.runs.stream(emptyThread.id, {
-      assistant_id: openAIAssistantId || '',
-      stream: true
+    let run = await openai.beta.threads.runs.createAndPoll(currentThreadId, {
+      assistant_id: openAIAssistantId || ''
     })
 
-    let assistantResponse = ''
-    const newAssistantChatId = nanoid()
+    if (run.status === 'completed' && chat) {
+      const messages = await openai.beta.threads.messages.list(run.thread_id)
 
-    for await (const message of stream) {
-      if (
-        message.event === 'thread.message.delta' &&
-        message.data.delta.content
-      ) {
-        const text = (message.data.delta.content[0] as any).text.value
-          ? (message.data.delta.content[0] as any).text.value
-          : ''
-        assistantResponse += text
+      const newAssistantChatId = nanoid()
+      const reversedMessages = messages.data.reverse()
+      const assistantResponse =
+        // @ts-ignore
+        reversedMessages[reversedMessages.length - 1].content[0].text.value
 
-        dispatch(
-          addMessage({
-            id: newAssistantChatId,
-            message: assistantResponse,
-            role: 'assistant'
-          })
-        )
-      }
-    }
-
-    // final update after the stream ends
-    dispatch(
-      addMessage({
+      const assistantMessage = {
         id: newAssistantChatId,
         message: assistantResponse,
         role: 'assistant'
-      })
-    )
+      }
+      dispatch(addMessage(assistantMessage))
+      chat.messages
+        ? chat.messages.push(assistantMessage)
+        : (chat.messages = [assistantMessage])
+    } else {
+      console.error(run.status)
+    }
+
+    await saveChat(chat)
 
     return {
-      id: chatId,
+      id: messageId,
       message: value,
       role: 'user'
     }
@@ -115,7 +135,7 @@ export function PromptForm({
       ref={formRef}
       onSubmit={async (e: any) => {
         e.preventDefault()
-        const chatId = nanoid()
+        const messageId = nanoid()
 
         // Blur focus on mobile
         if (window.innerWidth < 600) {
@@ -126,10 +146,10 @@ export function PromptForm({
         setInput('')
         if (!value) return
 
-        dispatch(addMessage({ id: chatId, message: value, role: 'user' }))
+        dispatch(addMessage({ id: messageId, message: value, role: 'user' }))
 
         // Submit and get response message
-        await submitUserMessage(chatId, value)
+        await submitUserMessage(messageId, value)
       }}
     >
       <div className="relative flex max-h-60 w-full grow flex-col overflow-hidden bg-background px-8 sm:rounded-md sm:border sm:px-12">

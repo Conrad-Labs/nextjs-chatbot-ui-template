@@ -6,7 +6,7 @@ export interface ChatMessage {
   role?: string
 }
 
-const initialState: { messages: ChatMessage[]} = { messages: [] };
+const initialState: { messages: ChatMessage[], threadId: string } = { messages: [], threadId: '' };
 
 const chatSlice = createSlice({
   name: 'message',
@@ -14,9 +14,7 @@ const chatSlice = createSlice({
   reducers: {
     addMessage: (state, action) => {
       const { id, message, role } = action.payload;
-
       const existingMessageIndex = state.messages.findIndex((msg) => msg.id === id);
-
       if (existingMessageIndex !== -1) {
         state.messages = [
           ...state.messages.slice(0, existingMessageIndex),
@@ -24,11 +22,21 @@ const chatSlice = createSlice({
           ...state.messages.slice(existingMessageIndex + 1),
         ];
       } else {
-        state.messages.push({ id, message, role });
+        state.messages.push({
+          id,
+          message,
+          role
+        })
       }
     },
+    setThreadId: (state, action) => {
+      state.threadId = action.payload
+    },
+    removeMessages: (state) => {
+      state.messages = []
+    }
   },
 });
 
-export const { addMessage } = chatSlice.actions;
+export const { addMessage, setThreadId, removeMessages } = chatSlice.actions;
 export default chatSlice.reducer;
