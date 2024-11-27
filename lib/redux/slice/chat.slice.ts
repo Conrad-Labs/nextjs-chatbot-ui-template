@@ -1,9 +1,11 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { FileData } from '@/lib/types';
 
 export interface ChatMessage {
   id: string,
   message: string,
   role?: string
+  files?: FileData[]
 }
 
 const initialState: { messages: ChatMessage[], threadId: string } = { messages: [], threadId: '' };
@@ -13,19 +15,22 @@ const chatSlice = createSlice({
   initialState,
   reducers: {
     addMessage: (state, action) => {
-      const { id, message, role } = action.payload;
+      const { id, message, role, files } = action.payload;
       const existingMessageIndex = state.messages.findIndex((msg) => msg.id === id);
       if (existingMessageIndex !== -1) {
+        // update message for streaming
         state.messages = [
           ...state.messages.slice(0, existingMessageIndex),
           { ...state.messages[existingMessageIndex], message },
           ...state.messages.slice(existingMessageIndex + 1),
         ];
       } else {
+        // add a new message
         state.messages.push({
           id,
           message,
-          role
+          role,
+          files
         })
       }
     },

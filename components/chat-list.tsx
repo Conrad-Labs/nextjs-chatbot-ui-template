@@ -62,15 +62,15 @@ export function ChatList({ initialMessages, session, isShared }: ChatList) {
       {combinedMessages.map((item: ChatMessage, index: number) => (
         <div key={item.id}>
           {item.role === 'user' ? (
-            <>
-              <UserMessage>{item.message}</UserMessage>
+            <div className="flex flex-col items-start">
+              <UserMessage content={item} />
               {isLastMessageFromUser &&
                 index === combinedMessages.length - 1 && (
                   <div className="mt-4">
                     <IconSpinner></IconSpinner>
                   </div>
                 )}
-            </>
+            </div>
           ) : (
             <BotMessage content={item.message}></BotMessage>
           )}
