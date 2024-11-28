@@ -1,10 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { FileData } from '@/lib/types';
 
+export enum Roles {
+  user = 'user',
+  assistant = 'assistant'
+}
+
 export interface ChatMessage {
   id: string,
   message: string,
-  role?: string
+  role?: Roles
   files?: FileData[]
 }
 

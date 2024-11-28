@@ -21,9 +21,6 @@ const FilePreview: React.FC<FilePreviewProps> = ({
 }) => {
   if (!file) return null
 
-  const isImage = file.type.startsWith('image/')
-  const isPDF = file.type === 'application/pdf'
-
   return (
     <div className="relative flex items-center justify-center gap-2 mt-4 sm:rounded-md sm:border bg-background max-w-fit">
       <Tooltip>
@@ -42,7 +39,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({
         <TooltipContent>Remove file</TooltipContent>
       </Tooltip>
 
-      {isImage && previewUrl ? (
+      {file.type.startsWith('image/') && previewUrl ? (
         <div className="w-16 h-16 overflow-hidden sm:rounded-md z-0">
           <img
             src={previewUrl}
@@ -50,7 +47,7 @@ const FilePreview: React.FC<FilePreviewProps> = ({
             className="w-16 h-16 object-cover sm:rounded-md"
           />
         </div>
-      ) : isPDF ? (
+      ) : (
         <div className="flex flex-row m-4 gap-2 items-center">
           <IconPDF className="w-8 h-8" />
           <div className="flex flex-col align-start">
@@ -58,8 +55,6 @@ const FilePreview: React.FC<FilePreviewProps> = ({
             <span className="text-xs text-muted-foreground">{file.type}</span>
           </div>
         </div>
-      ) : (
-        <span className="text-foreground">{file.name}</span>
       )}
     </div>
   )

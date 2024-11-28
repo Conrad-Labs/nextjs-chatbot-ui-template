@@ -13,10 +13,9 @@ import {
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { nanoid } from 'nanoid'
 import { Session, FileData } from '@/lib/types'
-import { usePathname, useRouter } from 'next/navigation'
 import { Chat } from '@/lib/types'
 import { getChat, saveChat } from '@/app/actions'
-import { addMessage, setThreadId } from '@/lib/redux/slice/chat.slice'
+import { addMessage, Roles, setThreadId } from '@/lib/redux/slice/chat.slice'
 import { useDispatch, useSelector } from 'react-redux'
 import OpenAI from 'openai'
 import FileUploadPopover from './file-upload-popover'
@@ -36,7 +35,6 @@ export function PromptForm({
   session?: Session
   id?: string
 }) {
-  const router = useRouter()
   const openai = new OpenAI({
     apiKey: openAIApiKey,
     dangerouslyAllowBrowser: true
@@ -46,7 +44,6 @@ export function PromptForm({
   const dispatch = useDispatch()
   const messages = useSelector((state: any) => state.chat.messages)
   const threadId = useSelector((state: any) => state.chat.threadId)
-  const pathname = usePathname()
   const [selectedFiles, setSelectedFiles] = React.useState<FileData[]>([])
   const [isAssistantRunning, setIsAssistantRunning] =
     React.useState<boolean>(false)
@@ -62,43 +59,13 @@ export function PromptForm({
       files
     )
 
-    await openai.beta.threads.messages.create(currentThreadId, {
-      role: 'user',
-      content: value
-    })
-
-    const stream = await openai.beta.threads.runs.stream(currentThreadId, {
-      assistant_id: openAIAssistantId || '',
-      stream: true
-    })
-
-    let assistantResponse = ''
-    const newAssistantChatId = nanoid()
-
-    for await (const message of stream) {
-      if (
-        message.event === 'thread.message.delta' &&
-        message.data.delta.content
-      ) {
-        const text = (message.data.delta.content[0] as any).text.value
-          ? (message.data.delta.content[0] as any).text.value
-          : ''
-        assistantResponse += text
-
-        dispatch(
-          addMessage({
-            id: newAssistantChatId,
-            message: assistantResponse,
-            role: 'assistant'
-          })
-        )
-      }
-    }
+    const { assistantMessageId, assistantResponse } =
+      await getAssistantResponse(currentThreadId, value)
 
     const assistantMessage = {
-      id: newAssistantChatId,
+      id: assistantMessageId,
       message: assistantResponse,
-      role: 'assistant'
+      role: Roles.assistant
     }
 
     chat.messages
@@ -112,7 +79,48 @@ export function PromptForm({
     return {
       id: messageId,
       message: value,
-      role: 'user'
+      role: Roles.user
+    }
+  }
+
+  const getAssistantResponse = async (
+    currentThreadId: string,
+    value: string
+  ) => {
+    await openai.beta.threads.messages.create(currentThreadId, {
+      role: Roles.user,
+      content: value
+    })
+
+    const stream = await openai.beta.threads.runs.stream(currentThreadId, {
+      assistant_id: openAIAssistantId || '',
+      stream: true
+    })
+
+    let assistantResponse = ''
+    const newAssistantChatId = nanoid()
+    const event = 'thread.message.delta'
+
+    for await (const message of stream) {
+      if (message.event === event && message.data.delta.content) {
+        const text = (message.data.delta.content[0] as any).text.value
+          ? (message.data.delta.content[0] as any).text.value
+          : ''
+        assistantResponse += text
+
+        dispatch(
+          addMessage({
+            id: newAssistantChatId,
+            message: assistantResponse,
+            role: Roles.assistant
+          })
+        )
+      }
+    }
+
+    return {
+      assistantMessageId: newAssistantChatId,
+      assistantResponse: assistantResponse
     }
   }
 
@@ -137,7 +145,7 @@ export function PromptForm({
         title,
         createdAt,
         path: `/chat/${id}`,
-        messages: [{ id: messageId, message: value, role: 'user' }],
+        messages: [{ id: messageId, message: value, role: Roles.user }],
         threadId: currentThreadId
       }
     } else {
@@ -150,7 +158,7 @@ export function PromptForm({
         ...(chat.messages || []),
         {
           id: messageId,
-          role: 'user',
+          role: Roles.user,
           message: value
         }
       ]
@@ -188,7 +196,7 @@ export function PromptForm({
 
     let files: FileData[] = []
     if (selectedFiles.length === 0) {
-      dispatch(addMessage({ id: messageId, message: value, role: 'user' }))
+      dispatch(addMessage({ id: messageId, message: value, role: Roles.user }))
     } else {
       files = selectedFiles.map(fileData => {
         return {
@@ -201,7 +209,7 @@ export function PromptForm({
         addMessage({
           id: messageId,
           message: value,
-          role: 'user',
+          role: Roles.user,
           files
         })
       )
