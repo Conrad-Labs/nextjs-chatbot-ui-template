@@ -48,6 +48,31 @@ export function PromptForm({
   const [isAssistantRunning, setIsAssistantRunning] =
     React.useState<boolean>(false)
 
+  const saveFiles = async (files: FileData[], chatId: string) => {
+    for (const file of files) {
+      try {
+        const response = await fetch(
+          `/api/save-files?chatId=${chatId}&filename=${file.file.name}&userId=${session?.user.id}`,
+          {
+            method: 'POST',
+            body: file.file
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            `Unable to save uploaded files. Response is ${response}`
+          )
+        } else {
+          const value = await response.json()
+          console.log(`Saved uploaded files successfully: ${value}`)
+        }
+      } catch (error) {
+        console.error('Error saving file:', error)
+      }
+    }
+  }
+
   const submitUserMessage = async (
     messageId: string,
     value: string,
@@ -74,6 +99,7 @@ export function PromptForm({
     dispatch(addMessage(assistantMessage))
 
     await saveChat(chat)
+    await saveFiles(files, messageId)
     setIsAssistantRunning(false)
 
     return {
