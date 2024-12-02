@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    debugger
     const { searchParams } = new URL(request.url)
     const session = await auth()
     const chatId = searchParams.get('chatId')
