@@ -2,7 +2,7 @@ import { Separator } from '@/components/ui/separator'
 import { Session } from '@/lib/types'
 import Link from 'next/link'
 import { ExclamationTriangleIcon } from '@radix-ui/react-icons'
-import { ChatMessage } from '@/lib/redux/slice/chat.slice'
+import { ChatMessage, Roles } from '@/lib/redux/slice/chat.slice'
 import { BotMessage, UserMessage } from './stocks/message'
 import { useSelector } from 'react-redux'
 import { IconSpinner } from './ui/icons'
@@ -31,7 +31,7 @@ export function ChatList({ initialMessages, session, isShared }: ChatList) {
         ]
       : [...messages]
   const isLastMessageFromUser =
-    combinedMessages[combinedMessages.length - 1].role === 'user'
+    combinedMessages[combinedMessages.length - 1].role === Roles.user
 
   return (
     <div className="relative mx-auto max-w-2xl px-4">
@@ -61,16 +61,16 @@ export function ChatList({ initialMessages, session, isShared }: ChatList) {
 
       {combinedMessages.map((item: ChatMessage, index: number) => (
         <div key={item.id}>
-          {item.role === 'user' ? (
-            <>
-              <UserMessage>{item.message}</UserMessage>
+          {item.role === Roles.user ? (
+            <div className="flex flex-col items-start">
+              <UserMessage content={item} />
               {isLastMessageFromUser &&
                 index === combinedMessages.length - 1 && (
                   <div className="mt-4">
                     <IconSpinner></IconSpinner>
                   </div>
                 )}
-            </>
+            </div>
           ) : (
             <BotMessage content={item.message}></BotMessage>
           )}

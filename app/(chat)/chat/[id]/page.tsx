@@ -5,7 +5,7 @@ import { auth } from '@/auth'
 import { getChat, getMissingKeys } from '@/app/actions'
 import { Chat } from '@/components/chat'
 import { Chat as UserChatMessage, Session } from '@/lib/types'
-import { ChatMessage } from '@/lib/redux/slice/chat.slice'
+import { ChatMessage, Roles } from '@/lib/redux/slice/chat.slice'
 
 export interface ChatPageProps {
   params: {
@@ -60,7 +60,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
           {
             id: id,
             message: title,
-            role: 'user'
+            role: Roles.user
           }
         ]
     const threadId = chat.threadId
