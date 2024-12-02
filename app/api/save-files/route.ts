@@ -1,9 +1,10 @@
 import { auth } from '@/auth'
 import { put } from '@vercel/blob'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export default async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    debugger
     const { searchParams } = new URL(request.url)
     const session = await auth()
     const chatId = searchParams.get('chatId')
