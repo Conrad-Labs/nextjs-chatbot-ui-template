@@ -23,10 +23,13 @@ async function UserOrLogin() {
       {session?.user ? (
         <>
           <Link href="/new" rel="nofollow">
-            <img src="./logo.png" className='invert dark:invert-0 h-6 w-auto' />
+            <img
+              src="./logo.png"
+              className="invert dark:invert-0 h-6 w-auto mx-1"
+            />
           </Link>
-        
-          <div className='ml-2'>
+
+          <div className="ml-2">
             <SidebarMobile>
               <ChatHistory userId={session.user.id} />
             </SidebarMobile>
@@ -35,7 +38,7 @@ async function UserOrLogin() {
         </>
       ) : (
         <Link href="/new" rel="nofollow">
-          <img src="./logo.png" className='invert dark:invert-0 h-6 w-auto' />
+          <img src="./logo.png" className="invert dark:invert-0 h-6 w-auto" />
         </Link>
       )}
       <div className="flex items-center">
@@ -60,8 +63,7 @@ export function Header() {
         </React.Suspense>
       </div>
 
-      <div className="flex items-center justify-end space-x-2">
-      </div>
+      <div className="flex items-center justify-end space-x-2"></div>
     </header>
   )
 }
