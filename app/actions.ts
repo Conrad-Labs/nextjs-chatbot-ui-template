@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { kv } from '@vercel/kv'
+import { del } from '@vercel/blob' 
 
 import { auth } from '@/auth'
 import { type Chat } from '@/lib/types'
@@ -74,6 +75,8 @@ export async function removeChat({ id, path }: { id: string; path: string }) {
     }
   }
 
+  await deleteSavedFiles(id, uid, path)
+
   await kv.del(`chat:${id}`)
   await kv.zrem(`user:chat:${session.user.id}`, `chat:${id}`)
 
@@ -97,6 +100,8 @@ export async function clearChats() {
   const pipeline = kv.pipeline()
 
   for (const chat of chats) {
+    const chatId = chat.split(":")[1];
+    await deleteSavedFiles(chatId, session.user.id)
     pipeline.del(chat)
     pipeline.zrem(`user:chat:${session.user.id}`, chat)
   }
@@ -105,6 +110,34 @@ export async function clearChats() {
 
   revalidatePath('/')
   return redirect('/')
+}
+
+export async function deleteSavedFiles(chatId: string, userId: string, path?: string) {
+  const session = await auth()
+
+  if (session?.user?.id !== userId) {
+    return {
+      error: 'Unauthorized'
+    }
+  }
+  const chat = await getChat(chatId, userId) as Chat
+  if (!chat || 'error' in chat) {
+    return redirect('/')
+  }
+
+  const deleteFileUrls = []
+  for (const message of chat.messages) {
+    if (message.files) {
+      const files = JSON.parse(message.files || '')
+      for (const file of files) {
+        deleteFileUrls.push(file.previewUrl)
+      }
+    }
+  }
+
+  if (deleteFileUrls && deleteFileUrls.length > 0) {
+    await del(deleteFileUrls)
+  }
 }
 
 export async function getSharedChat(id: string) {
