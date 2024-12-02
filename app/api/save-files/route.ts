@@ -26,7 +26,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         return NextResponse.json({ status: 401, message: 'Unauthorized' })
       }
     } else {
-      const message = `chat id is : ${chatId}. filename is ${filename}. user id is ${userId} and file is ${file}`
       return NextResponse.json({ status: 400, error: 'Bad request' })
     }
   } catch (error) {
