@@ -10,7 +10,7 @@ export interface ChatMessage {
   id: string,
   message: string,
   role?: Roles
-  files?: string
+  files?: FileData[]
 }
 
 const initialState: { messages: ChatMessage[], threadId: string } = { messages: [], threadId: '' };

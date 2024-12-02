@@ -14,25 +14,22 @@ import { ChatMessage } from '@/lib/redux/slice/chat.slice'
 // Different types of message bubbles.
 
 export function UserMessage({ content }: { content: ChatMessage }) {
-  let files = null
-  if (content.files) {
-    files = JSON.parse(content.files)
-  }
   return (
     <div className="group relative flex items-start md:-ml-12">
       <div className="flex size-[25px] shrink-0 select-none items-center justify-center rounded-md border bg-background shadow-sm">
         <IconUser />
       </div>
       <div className="flex flex-col flex-1">
-        {files && (
+        {content.files && (
           <div className="flex flex-wrap gap-4 mx-4 mb-2">
-            {files.map((file: any, index: any) => {
+            {content.files.map((fileData, index) => {
               return (
                 <div key={index} className="flex items-start gap-4">
-                  {file.type && file.type.startsWith('image') ? (
+                  {fileData.file.type.startsWith('image') &&
+                  fileData.previewUrl ? (
                     <img
-                      src={file.previewUrl}
-                      alt={file.name}
+                      src={fileData.previewUrl}
+                      alt={fileData.name}
                       className="w-32 h-32 sm:rounded-md sm:border sm:bg-background sm:shadow-md"
                     />
                   ) : (
@@ -40,9 +37,9 @@ export function UserMessage({ content }: { content: ChatMessage }) {
                       <div className="m-4">
                         <IconPDF className="w-12 h-12" />
                         <div className="flex flex-col">
-                          <span className="text-sm">{file.name}</span>
+                          <span className="text-sm">{fileData.file.name}</span>
                           <span className="text-xs text-muted-foreground">
-                            {file.name}
+                            {fileData.file.type}
                           </span>
                         </div>
                       </div>
