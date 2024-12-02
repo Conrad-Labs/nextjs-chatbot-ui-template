@@ -48,11 +48,12 @@ export function PromptForm({
   const [isAssistantRunning, setIsAssistantRunning] =
     React.useState<boolean>(false)
 
-  const saveFiles = async (files: FileData[], chatId: string) => {
-    for (const file of files) {
-      try {
+  const saveFiles = async (files: FileData[], messageId: string) => {
+    const fileBlobs: any[] = []
+    try {
+      for (const file of files) {
         const response = await fetch(
-          `/api/save-files?chatId=${chatId}&filename=${file.file.name}&userId=${session?.user.id}`,
+          `/api/save-files?chatId=${id}&filename=${file.file.name}&userId=${session?.user.id}&messageId=${messageId}`,
           {
             method: 'POST',
             body: file.file
@@ -66,17 +67,23 @@ export function PromptForm({
         } else {
           const value = await response.json()
           console.log(`Saved uploaded files successfully: ${value}`)
+          fileBlobs.push({
+            name: value.pathname,
+            previewUrl: value.downloadUrl,
+            type: value.contentType
+          })
         }
-      } catch (error) {
-        console.error('Error saving file:', error)
       }
+      return fileBlobs
+    } catch (error) {
+      console.error('Error saving file:', error)
     }
   }
 
   const submitUserMessage = async (
     messageId: string,
     value: string,
-    files: FileData[]
+    files: any[]
   ) => {
     const { currentThreadId, chat } = await getCurrentChat(
       messageId,
@@ -99,7 +106,6 @@ export function PromptForm({
     dispatch(addMessage(assistantMessage))
 
     await saveChat(chat)
-    await saveFiles(files, messageId)
     setIsAssistantRunning(false)
 
     return {
@@ -153,7 +159,7 @@ export function PromptForm({
   const getCurrentChat = async (
     messageId: string,
     value: string,
-    files: FileData[]
+    files: any[]
   ) => {
     let currentThreadId = threadId
     let chat: Chat
@@ -171,7 +177,14 @@ export function PromptForm({
         title,
         createdAt,
         path: `/chat/${id}`,
-        messages: [{ id: messageId, message: value, role: Roles.user }],
+        messages: [
+          {
+            id: messageId,
+            message: value,
+            role: Roles.user,
+            files: JSON.stringify(files)
+          }
+        ],
         threadId: currentThreadId
       }
     } else {
@@ -185,7 +198,8 @@ export function PromptForm({
         {
           id: messageId,
           role: Roles.user,
-          message: value
+          message: value,
+          files: JSON.stringify(files)
         }
       ]
       currentThreadId = chat.threadId
@@ -220,23 +234,24 @@ export function PromptForm({
     setInput('')
     if (!value && selectedFiles.length === 0) return
 
-    let files: FileData[] = []
+    let files: any[] = []
     if (selectedFiles.length === 0) {
       dispatch(addMessage({ id: messageId, message: value, role: Roles.user }))
     } else {
-      files = selectedFiles.map(fileData => {
+      const currFiles = selectedFiles.map(fileData => {
         return {
           file: fileData.file,
           name: fileData.name,
           previewUrl: fileData.previewUrl
         } as FileData
       })
+      files = (await saveFiles(currFiles, messageId)) || []
       dispatch(
         addMessage({
           id: messageId,
           message: value,
           role: Roles.user,
-          files
+          files: JSON.stringify(files)
         })
       )
       setSelectedFiles([])
