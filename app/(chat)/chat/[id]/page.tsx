@@ -6,6 +6,7 @@ import { getChat, getMissingKeys } from '@/app/actions'
 import { Chat } from '@/components/chat'
 import { Chat as UserChatMessage, Session } from '@/lib/types'
 import { ChatMessage, Roles } from '@/lib/redux/slice/chat.slice'
+import { ErrorMessage } from '@/app/constants'
 
 export interface ChatPageProps {
   params: {
@@ -22,10 +23,11 @@ export async function generateMetadata({
     return {}
   }
 
-  const chat = await getChat(params.id, session.user.id)
-  if (!chat || 'error' in chat) {
+  let chat = await getChat(params.id, session.user.id)
+  if (!chat || ErrorMessage.message in chat) {
     redirect('/')
   } else {
+    chat = chat as UserChatMessage
     return {
       title: chat?.title.toString().slice(0, 50) ?? 'Chat'
     }
@@ -41,14 +43,15 @@ export default async function ChatPage({ params }: ChatPageProps) {
   }
 
   const userId = session.user.id as string
-  const chat: UserChatMessage | null | { error: string } = await getChat(
+  let chat: UserChatMessage | null | { error: string } = await getChat(
     params.id,
     userId
   )
 
-  if (!chat || 'error' in chat) {
+  if (!chat || ErrorMessage.message in chat) {
     redirect('/')
   } else {
+    chat = chat as UserChatMessage
     if (chat?.userId !== session?.user?.id) {
       notFound()
     }

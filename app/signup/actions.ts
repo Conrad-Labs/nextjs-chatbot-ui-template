@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { kv } from '@vercel/kv'
 import { getUser } from '../login/actions'
 import { AuthError } from 'next-auth'
+import { ErrorMessage, SuccessMessage } from '../constants'
 
 export async function createUser(
   email: string,
@@ -16,7 +17,7 @@ export async function createUser(
 
   if (existingUser) {
     return {
-      type: 'error',
+      type: ErrorMessage.message,
       resultCode: ResultCode.UserAlreadyExists
     }
   } else {
@@ -30,7 +31,7 @@ export async function createUser(
     await kv.hmset(`user:${email}`, user)
 
     return {
-      type: 'success',
+      type: SuccessMessage.message,
       resultCode: ResultCode.UserCreated
     }
   }
@@ -86,25 +87,25 @@ export async function signup(
         switch (error.type) {
           case 'CredentialsSignin':
             return {
-              type: 'error',
+              type: ErrorMessage.message,
               resultCode: ResultCode.InvalidCredentials
             }
           default:
             return {
-              type: 'error',
+              type: ErrorMessage.message,
               resultCode: ResultCode.UnknownError
             }
         }
       } else {
         return {
-          type: 'error',
+          type: ErrorMessage.message,
           resultCode: ResultCode.UnknownError
         }
       }
     }
   } else {
     return {
-      type: 'error',
+      type: ErrorMessage.message,
       resultCode: ResultCode.InvalidCredentials
     }
   }
