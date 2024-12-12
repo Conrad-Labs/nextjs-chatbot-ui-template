@@ -1,3 +1,4 @@
+import { Error400Response, Error401Response, Error500Response } from '@/app/constants'
 import { auth } from '@/auth'
 import { put } from '@vercel/blob'
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,6 +12,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const userId = searchParams.get('userId')
     const file = await request.body
     const currUser = session?.user?.id
+    const access = 'public'
 
     if (chatId && filename && userId && file && userId) {
       if (currUser === userId) {
@@ -18,17 +20,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           `user:${userId}/chat:${chatId}/${filename}`,
           file,
           {
-            access: 'public'
+            access
           }
         )
         return NextResponse.json(blob)
       } else {
-        return NextResponse.json({ status: 401, message: 'Unauthorized' })
+        return NextResponse.json({ status: Error401Response.status, message: Error401Response.message })
       }
     } else {
-      return NextResponse.json({ status: 400, error: 'Bad request' })
+      return NextResponse.json({ status: Error400Response.status, error: Error400Response.message })
     }
   } catch (error) {
-    return NextResponse.json({ status: 500, message: error })
+    return NextResponse.json({ status: Error500Response.status, message: error })
   }
 }

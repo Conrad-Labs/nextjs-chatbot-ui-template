@@ -7,6 +7,7 @@ import { del } from '@vercel/blob'
 
 import { auth } from '@/auth'
 import { type Chat } from '@/lib/types'
+import { Error401Response, ErrorMessage } from './constants'
 
 export async function getChats(userId?: string | null) {
   const session = await auth()
@@ -17,7 +18,7 @@ export async function getChats(userId?: string | null) {
 
   if (userId !== session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -44,7 +45,7 @@ export async function getChat(id: string, userId: string) {
 
   if (userId !== session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -62,7 +63,7 @@ export async function removeChat({ id, path }: { id: string; path: string }) {
 
   if (!session) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -71,7 +72,7 @@ export async function removeChat({ id, path }: { id: string; path: string }) {
 
   if (uid !== session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -89,7 +90,7 @@ export async function clearChats() {
 
   if (!session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -117,18 +118,18 @@ export async function deleteSavedFiles(chatId: string, userId: string, path?: st
 
   if (session?.user?.id !== userId) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
   const chat = await getChat(chatId, userId) as Chat
-  if (!chat || 'error' in chat) {
+  if (!chat || ErrorMessage.message in chat) {
     return redirect('/')
   }
 
   const deleteFileUrls = []
   for (const message of chat.messages) {
     if (message.files) {
-      const files = JSON.parse(message.files || '')
+      const files = JSON.parse(message.files)
       for (const file of files) {
         deleteFileUrls.push(file.previewUrl)
       }

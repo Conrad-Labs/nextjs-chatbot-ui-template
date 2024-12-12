@@ -56,7 +56,7 @@ export function ClearHistory({
               event.preventDefault()
               startTransition(async () => {
                 const result = await clearChats()
-                if (result && 'error' in result) {
+                if (result && ErrorMessage.message in result) {
                   toast.error(result.error)
                   return
                 }
