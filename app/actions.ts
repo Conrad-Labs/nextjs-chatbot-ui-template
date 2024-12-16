@@ -3,9 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { kv } from '@vercel/kv'
+import { del } from '@vercel/blob' 
 
 import { auth } from '@/auth'
 import { type Chat } from '@/lib/types'
+import { Error401Response, ErrorMessage } from './constants'
 
 export async function getChats(userId?: string | null) {
   const session = await auth()
@@ -16,7 +18,7 @@ export async function getChats(userId?: string | null) {
 
   if (userId !== session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -43,7 +45,7 @@ export async function getChat(id: string, userId: string) {
 
   if (userId !== session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -61,7 +63,7 @@ export async function removeChat({ id, path }: { id: string; path: string }) {
 
   if (!session) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -70,9 +72,11 @@ export async function removeChat({ id, path }: { id: string; path: string }) {
 
   if (uid !== session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
+
+  await deleteSavedFiles(id, uid, path)
 
   await kv.del(`chat:${id}`)
   await kv.zrem(`user:chat:${session.user.id}`, `chat:${id}`)
@@ -86,7 +90,7 @@ export async function clearChats() {
 
   if (!session?.user?.id) {
     return {
-      error: 'Unauthorized'
+      error: Error401Response.message
     }
   }
 
@@ -97,6 +101,8 @@ export async function clearChats() {
   const pipeline = kv.pipeline()
 
   for (const chat of chats) {
+    const chatId = chat.split(":")[1];
+    await deleteSavedFiles(chatId, session.user.id)
     pipeline.del(chat)
     pipeline.zrem(`user:chat:${session.user.id}`, chat)
   }
@@ -105,6 +111,34 @@ export async function clearChats() {
 
   revalidatePath('/')
   return redirect('/')
+}
+
+export async function deleteSavedFiles(chatId: string, userId: string, path?: string) {
+  const session = await auth()
+
+  if (session?.user?.id !== userId) {
+    return {
+      error: Error401Response.message
+    }
+  }
+  const chat = await getChat(chatId, userId) as Chat
+  if (!chat || ErrorMessage.message in chat) {
+    return redirect('/')
+  }
+
+  const deleteFileUrls = []
+  for (const message of chat.messages) {
+    if (message.files) {
+      const files = JSON.parse(message.files)
+      for (const file of files) {
+        deleteFileUrls.push(file.previewUrl)
+      }
+    }
+  }
+
+  if (deleteFileUrls && deleteFileUrls.length > 0) {
+    await del(deleteFileUrls)
+  }
 }
 
 export async function getSharedChat(id: string) {

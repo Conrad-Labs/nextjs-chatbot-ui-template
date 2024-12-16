@@ -4,6 +4,8 @@ import { SidebarItems } from '@/components/sidebar-items'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
+import { ErrorMessage } from '@/app/constants'
+import { Chat } from '@/lib/types'
 
 interface SidebarListProps {
   userId?: string
@@ -15,11 +17,12 @@ const loadChats = cache(async (userId?: string) => {
 })
 
 export async function SidebarList({ userId }: SidebarListProps) {
-  const chats = await loadChats(userId)
+  let chats = await loadChats(userId)
 
-  if (!chats || 'error' in chats) {
+  if (!chats || ErrorMessage.message in chats) {
     redirect('/')
   } else {
+    chats = chats as Chat[]
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
         <div className="flex-1 overflow-auto">

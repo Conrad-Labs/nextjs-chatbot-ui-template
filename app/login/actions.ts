@@ -6,6 +6,7 @@ import { AuthError } from 'next-auth'
 import { z } from 'zod'
 import { kv } from '@vercel/kv'
 import { ResultCode } from '@/lib/utils'
+import { ErrorMessage, SuccessMessage } from '../constants'
 
 export async function getUser(email: string) {
   const user = await kv.hgetall<User>(`user:${email}`)
@@ -43,12 +44,12 @@ export async function authenticate(
       })
 
       return {
-        type: 'success',
+        type: SuccessMessage.message,
         resultCode: ResultCode.UserLoggedIn
       }
     } else {
       return {
-        type: 'error',
+        type: ErrorMessage.message,
         resultCode: ResultCode.InvalidCredentials
       }
     }
@@ -57,12 +58,12 @@ export async function authenticate(
       switch (error.type) {
         case 'CredentialsSignin':
           return {
-            type: 'error',
+            type: ErrorMessage.message,
             resultCode: ResultCode.InvalidCredentials
           }
         default:
           return {
-            type: 'error',
+            type: ErrorMessage.message,
             resultCode: ResultCode.UnknownError
           }
       }
