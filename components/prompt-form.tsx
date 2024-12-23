@@ -67,6 +67,7 @@ export function PromptForm({
           const value = await response.json()
           console.log(`Saved uploaded files successfully: ${value}`)
           fileBlobs.push({
+            filename: file.file.name,
             name: value.pathname,
             previewUrl: value.downloadUrl,
             type: value.contentType
@@ -232,7 +233,10 @@ export function PromptForm({
 
     const value = input.trim()
     setInput('')
-    if (!value && selectedFiles.length === 0) return
+    if (!value && selectedFiles.length === 0) {
+      setIsAssistantRunning(false)
+      return
+    }
 
     let files: any[] = []
     if (selectedFiles.length === 0) {
