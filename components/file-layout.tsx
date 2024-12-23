@@ -14,7 +14,6 @@ const FileLayout: React.FC<FileLayoutProps> = ({
   previewUrl
 }) => {
   if (!fileType) return null
-  console.log('file is ', { fileType, name, previewUrl })
 
   return (
     <>
