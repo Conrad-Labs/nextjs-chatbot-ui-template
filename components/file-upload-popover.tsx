@@ -92,7 +92,7 @@ function FileUploadPopover({
           ref={fileInputRef}
           style={{ display: 'none' }}
           onChange={handleFileChange}
-          accept="image/*,application/pdf,.csv,.xls,.xlsx"
+          accept="application/pdf"
           multiple
         />
       </PopoverContent>

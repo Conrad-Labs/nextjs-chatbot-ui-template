@@ -70,7 +70,8 @@ export function PromptForm({
             filename: file.file.name,
             name: value.pathname,
             previewUrl: value.downloadUrl,
-            type: value.contentType
+            type: value.contentType,
+            fileObj: file.file
           })
         }
       }
@@ -92,7 +93,7 @@ export function PromptForm({
     )
 
     const { assistantMessageId, assistantResponse } =
-      await getAssistantResponse(currentThreadId, value)
+      await getAssistantResponse(currentThreadId, value, files)
 
     const assistantMessage = {
       id: assistantMessageId,
@@ -117,11 +118,40 @@ export function PromptForm({
 
   const getAssistantResponse = async (
     currentThreadId: string,
-    value: string
+    value: string,
+    files: any[]
   ) => {
+    const fileIds = []
+    if (files && files.length > 0) {
+      try {
+        for (const file of files) {
+          const createdFile = await openai.files.create({
+            file: file.fileObj,
+            purpose: 'assistants'
+          })
+
+          if (createdFile && createdFile.id) {
+            fileIds.push(createdFile.id)
+          } else {
+            const error = `An error occurred getting the created file ID for upload: ${createdFile}`
+            console.error(error)
+          }
+        }
+      } catch (e) {
+        const error = `An error occurred uploading files to the assistant: ${e}`
+        console.error(error)
+      }
+    }
+    const valueWithFiles = value || 'Please analyze these files'
     await openai.beta.threads.messages.create(currentThreadId, {
       role: Roles.user,
-      content: value
+      content: valueWithFiles,
+      attachments: fileIds.map(file_id => {
+        return {
+          file_id,
+          tools: [{ type: 'file_search' }]
+        }
+      })
     })
 
     const stream = await openai.beta.threads.runs.stream(currentThreadId, {
@@ -262,8 +292,7 @@ export function PromptForm({
     }
 
     // Submit and get response message
-    const valueWithFiles = value || 'Please look at these files'
-    await submitUserMessage(messageId, valueWithFiles, files)
+    await submitUserMessage(messageId, value, files)
   }
 
   React.useEffect(() => {
