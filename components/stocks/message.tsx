@@ -10,6 +10,7 @@ import remarkMath from 'remark-math'
 import { StreamableValue } from 'ai/rsc'
 import { useStreamableText } from '@/lib/hooks/use-streamable-text'
 import { ChatMessage } from '@/lib/redux/slice/chat.slice'
+import FileLayout from '../file-layout'
 
 // Different types of message bubbles.
 
@@ -29,25 +30,11 @@ export function UserMessage({ content }: { content: ChatMessage }) {
             {files.map((file: any, index: any) => {
               return (
                 <div key={index} className="flex items-start gap-4">
-                  {file.type && file.type.startsWith('image') ? (
-                    <img
-                      src={file.previewUrl}
-                      alt={file.name}
-                      className="w-32 h-32 sm:rounded-md sm:border sm:bg-background sm:shadow-md"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 h-32 sm:rounded-md sm:border sm:bg-background sm:shadow-md">
-                      <div className="m-4">
-                        <IconPDF className="w-12 h-12" />
-                        <div className="flex flex-col">
-                          <span className="text-sm">{file.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {file.name}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <FileLayout
+                    fileType={file.type}
+                    name={file.filename}
+                    previewUrl={file.previewUrl}
+                  />
                 </div>
               )
             })}

@@ -11,8 +11,7 @@ import { FileData } from '@/lib/types'
 
 function FileUploadPopover({
   onFileSelect,
-  disabled,
-  ...props
+  disabled
 }: {
   onFileSelect: (files: FileData[]) => void
   disabled: boolean
@@ -93,7 +92,7 @@ function FileUploadPopover({
           ref={fileInputRef}
           style={{ display: 'none' }}
           onChange={handleFileChange}
-          accept="image/*,application/pdf"
+          accept="application/pdf"
           multiple
         />
       </PopoverContent>

@@ -1,5 +1,4 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { FileData } from '@/lib/types';
 
 export enum Roles {
   user = 'user',
