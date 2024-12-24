@@ -11,6 +11,8 @@ import { StreamableValue } from 'ai/rsc'
 import { useStreamableText } from '@/lib/hooks/use-streamable-text'
 import { ChatMessage } from '@/lib/redux/slice/chat.slice'
 import FileLayout from '../file-layout'
+import { Citation } from '@/lib/types'
+import CitationsPopover from '../citations-popover'
 
 // Different types of message bubbles.
 
@@ -50,10 +52,12 @@ export function UserMessage({ content }: { content: ChatMessage }) {
 
 export function BotMessage({
   content,
-  className
+  className,
+  citations
 }: {
   content: string | StreamableValue<string>
   className?: string
+  citations?: Citation[]
 }) {
   const text = useStreamableText(content)
 
@@ -104,6 +108,9 @@ export function BotMessage({
         >
           {text}
         </MemoizedReactMarkdown>
+        {citations && citations.length > 0 && (
+          <CitationsPopover citations={citations} />
+        )}
       </div>
     </div>
   )
