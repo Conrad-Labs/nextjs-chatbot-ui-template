@@ -65,19 +65,22 @@ export function PromptForm({
           throw new Error(error)
         } else {
           const value = await response.json()
-          console.log(`Saved uploaded files successfully: ${value}`)
+          const success = `Saved uploaded files successfully: `
+          console.log(success, value)
           fileBlobs.push({
             filename: file.file.name,
             name: value.pathname,
-            previewUrl: value.downloadUrl,
+            previewUrl: value.url,
             type: value.contentType,
-            fileObj: file.file
+            fileObj: file.file,
+            downloadUrl: value.downloadUrl
           })
         }
       }
       return fileBlobs
-    } catch (error) {
-      console.error('Error saving file:', error)
+    } catch (e) {
+      const error = `Error saving file: ${e}`
+      console.error(error)
     }
   }
 
@@ -327,26 +330,17 @@ export function PromptForm({
           previewUrl: fileData.previewUrl
         } as FileData
       })
-      const tempFiles = currFiles.map(file => {
-        return {
-          filename: file.file.name,
-          name: '',
-          previewUrl: file.previewUrl,
-          type: file.file.type,
-          fileObj: file.file
-        }
-      })
       setInput('')
       setSelectedFiles([])
+      files = (await saveFiles(currFiles, messageId)) || []
       dispatch(
         addMessage({
           id: messageId,
           message: value,
           role: Roles.user,
-          files: JSON.stringify(tempFiles)
+          files: JSON.stringify(files)
         })
       )
-      files = (await saveFiles(currFiles, messageId)) || []
     }
 
     // Submit and get response message
