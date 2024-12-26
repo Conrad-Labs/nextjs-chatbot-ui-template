@@ -308,6 +308,14 @@ export function PromptForm({
     )
   }
 
+  const showToast = (description: string, duration?: number) => {
+    const title = '🤖 is thinking…'
+    return toast(title, {
+      description,
+      duration: duration ? duration : 4000
+    })
+  }
+
   const handleSubmit = async (event: any) => {
     event.preventDefault()
     setIsAssistantRunning(true)
@@ -325,13 +333,12 @@ export function PromptForm({
     }
 
     let files: any[] = []
+    const toastMessage =
+      'The AI is hard at work crafting your response, this will only take a moment!'
+
     if (selectedFiles.length === 0) {
+      showToast(toastMessage, Infinity)
       setInput('')
-      if (messages.length === 0) {
-        const toastMessage =
-          'Thank you for choosing us, your response is being generated!'
-        toast.success(toastMessage)
-      }
       dispatch(addMessage({ id: messageId, message: value, role: Roles.user }))
     } else {
       const currFiles = selectedFiles.map(fileData => {
@@ -361,9 +368,7 @@ export function PromptForm({
       )
       setInput('')
       setSelectedFiles([])
-      const toastMessage =
-        'Please wait a moment while we analyze the data you have provided.'
-      toast.success(toastMessage)
+      showToast(toastMessage, Infinity)
       files = (await saveFiles(currFiles, messageId)) || []
       dispatch(
         updateFiles({
@@ -374,7 +379,9 @@ export function PromptForm({
     }
 
     // Submit and get response message
+    toast.dismiss()
     await submitUserMessage(messageId, value, files)
+    toast.dismiss()
   }
 
   React.useEffect(() => {
