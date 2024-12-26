@@ -72,7 +72,10 @@ export function ChatList({ initialMessages, session, isShared }: ChatList) {
                 )}
             </div>
           ) : (
-            <BotMessage content={item.message}></BotMessage>
+            <BotMessage
+              content={item.message}
+              citations={item.citations}
+            ></BotMessage>
           )}
           {index < combinedMessages.length - 1 && (
             <Separator className="my-4" />
