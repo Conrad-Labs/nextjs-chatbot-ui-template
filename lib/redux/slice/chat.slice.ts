@@ -46,9 +46,14 @@ const chatSlice = createSlice({
     },
     removeMessages: (state) => {
       state.messages = []
+    },
+    updateFiles: (state, action) => {
+      const { id, files } = action.payload
+      const existingMessageIndex = state.messages.findIndex((msg) => msg.id === id);
+      state.messages[existingMessageIndex] = {...state.messages[existingMessageIndex], files}
     }
   },
 });
 
-export const { addMessage, setThreadId, removeMessages } = chatSlice.actions;
+export const { addMessage, setThreadId, removeMessages, updateFiles } = chatSlice.actions;
 export default chatSlice.reducer;

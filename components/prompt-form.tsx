@@ -15,11 +15,17 @@ import { nanoid } from 'nanoid'
 import { Session, FileData, Citation } from '@/lib/types'
 import { Chat } from '@/lib/types'
 import { getChat, saveChat } from '@/app/actions'
-import { addMessage, Roles, setThreadId } from '@/lib/redux/slice/chat.slice'
+import {
+  addMessage,
+  Roles,
+  setThreadId,
+  updateFiles
+} from '@/lib/redux/slice/chat.slice'
 import { useDispatch, useSelector } from 'react-redux'
 import OpenAI from 'openai'
 import FileUploadPopover from './file-upload-popover'
 import FilePreview from './file-preview'
+import { toast } from 'sonner'
 
 const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
 const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
@@ -321,6 +327,11 @@ export function PromptForm({
     let files: any[] = []
     if (selectedFiles.length === 0) {
       setInput('')
+      if (messages.length === 0) {
+        const toastMessage =
+          'Thank you for choosing us, your response is being generated!'
+        toast.success(toastMessage)
+      }
       dispatch(addMessage({ id: messageId, message: value, role: Roles.user }))
     } else {
       const currFiles = selectedFiles.map(fileData => {
@@ -330,14 +341,33 @@ export function PromptForm({
           previewUrl: fileData.previewUrl
         } as FileData
       })
-      setInput('')
-      setSelectedFiles([])
-      files = (await saveFiles(currFiles, messageId)) || []
+      const tempFiles = currFiles.map(file => {
+        return {
+          filename: file.file.name,
+          name: '',
+          previewUrl: file.previewUrl,
+          type: file.file.type,
+          fileObj: file.file,
+          downloadUrl: ''
+        }
+      })
       dispatch(
         addMessage({
           id: messageId,
           message: value,
           role: Roles.user,
+          files: JSON.stringify(tempFiles)
+        })
+      )
+      setInput('')
+      setSelectedFiles([])
+      const toastMessage =
+        'Please wait a moment while we analyze the data you have provided.'
+      toast.success(toastMessage)
+      files = (await saveFiles(currFiles, messageId)) || []
+      dispatch(
+        updateFiles({
+          id: messageId,
           files: JSON.stringify(files)
         })
       )
