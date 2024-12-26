@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { nanoid } from 'nanoid'
-import { Session, FileData } from '@/lib/types'
+import { Session, FileData, Citation } from '@/lib/types'
 import { Chat } from '@/lib/types'
 import { getChat, saveChat } from '@/app/actions'
 import { addMessage, Roles, setThreadId } from '@/lib/redux/slice/chat.slice'
@@ -67,9 +67,11 @@ export function PromptForm({
           const value = await response.json()
           console.log(`Saved uploaded files successfully: ${value}`)
           fileBlobs.push({
+            filename: file.file.name,
             name: value.pathname,
             previewUrl: value.downloadUrl,
-            type: value.contentType
+            type: value.contentType,
+            fileObj: file.file
           })
         }
       }
@@ -90,13 +92,14 @@ export function PromptForm({
       files
     )
 
-    const { assistantMessageId, assistantResponse } =
-      await getAssistantResponse(currentThreadId, value)
+    const { assistantMessageId, assistantResponse, citations } =
+      await getAssistantResponse(currentThreadId, value, files)
 
     const assistantMessage = {
       id: assistantMessageId,
       message: assistantResponse,
-      role: Roles.assistant
+      role: Roles.assistant,
+      citations
     }
 
     chat.messages
@@ -116,11 +119,42 @@ export function PromptForm({
 
   const getAssistantResponse = async (
     currentThreadId: string,
-    value: string
+    value: string,
+    files: any[]
   ) => {
+    const fileIds = []
+    if (files && files.length > 0) {
+      try {
+        for (const file of files) {
+          const purpose = 'assistants'
+          const createdFile = await openai.files.create({
+            file: file.fileObj,
+            purpose
+          })
+
+          if (createdFile && createdFile.id) {
+            fileIds.push(createdFile.id)
+          } else {
+            const error = `An error occurred getting the created file ID for upload: ${createdFile}`
+            console.error(error)
+          }
+        }
+      } catch (e) {
+        const error = `An error occurred uploading files to the assistant: ${e}`
+        console.error(error)
+      }
+    }
+    const valueWithFiles = 'Please analyze these files'
+    const toolType = 'file_search'
     await openai.beta.threads.messages.create(currentThreadId, {
       role: Roles.user,
-      content: value
+      content: value || valueWithFiles,
+      attachments: fileIds.map(file_id => {
+        return {
+          file_id,
+          tools: [{ type: toolType }]
+        }
+      })
     })
 
     const stream = await openai.beta.threads.runs.stream(currentThreadId, {
@@ -130,28 +164,75 @@ export function PromptForm({
 
     let assistantResponse = ''
     const newAssistantChatId = nanoid()
-    const event = 'thread.message.delta'
+    const delta = 'thread.message.delta'
+    const completed = 'thread.message.completed'
+    let citations: Citation[] = []
 
     for await (const message of stream) {
-      if (message.event === event && message.data.delta.content) {
+      if (message.event === delta && message.data.delta.content) {
         const text = (message.data.delta.content[0] as any).text.value
           ? (message.data.delta.content[0] as any).text.value
           : ''
         assistantResponse += text
+        const annotations = (message.data.delta.content[0] as any).text
+          .annotations
+
+        if (annotations && annotations.length > 0) {
+          for (let annotation of annotations) {
+            const trimmedText = annotation.text
+            assistantResponse = assistantResponse.replace(
+              trimmedText,
+              ` [${annotation.index + 1}]`
+            )
+          }
+        }
 
         dispatch(
           addMessage({
             id: newAssistantChatId,
             message: assistantResponse,
-            role: Roles.assistant
+            role: Roles.assistant,
+            citations
           })
         )
+      } else if (message.event === completed) {
+        const text = (message.data.content[0] as any).text
+        const { annotations } = text
+        let index = 0
+        for (let annotation of annotations) {
+          const file_info = await openai.files.retrieve(
+            annotation.file_citation.file_id
+          )
+          const file_name = file_info.filename
+          const annotation_details = {
+            index: index + 1,
+            text: `[${annotation.text}]`,
+            file_name: file_name,
+            start_index: annotation.start_index,
+            end_index: annotation.end_index
+          }
+          citations = [...citations, annotation_details]
+          index++
+        }
+        if (citations.length > 0) {
+          assistantResponse += '\n\n'
+        }
       }
     }
 
+    dispatch(
+      addMessage({
+        id: newAssistantChatId,
+        message: assistantResponse,
+        role: Roles.assistant,
+        citations
+      })
+    )
+
     return {
       assistantMessageId: newAssistantChatId,
-      assistantResponse: assistantResponse
+      assistantResponse: assistantResponse,
+      citations
     }
   }
 
@@ -231,11 +312,14 @@ export function PromptForm({
     }
 
     const value = input.trim()
-    setInput('')
-    if (!value && selectedFiles.length === 0) return
+    if (!value && selectedFiles.length === 0) {
+      setIsAssistantRunning(false)
+      return
+    }
 
     let files: any[] = []
     if (selectedFiles.length === 0) {
+      setInput('')
       dispatch(addMessage({ id: messageId, message: value, role: Roles.user }))
     } else {
       const currFiles = selectedFiles.map(fileData => {
@@ -245,21 +329,30 @@ export function PromptForm({
           previewUrl: fileData.previewUrl
         } as FileData
       })
-      files = (await saveFiles(currFiles, messageId)) || []
+      const tempFiles = currFiles.map(file => {
+        return {
+          filename: file.file.name,
+          name: '',
+          previewUrl: file.previewUrl,
+          type: file.file.type,
+          fileObj: file.file
+        }
+      })
+      setInput('')
+      setSelectedFiles([])
       dispatch(
         addMessage({
           id: messageId,
           message: value,
           role: Roles.user,
-          files: JSON.stringify(files)
+          files: JSON.stringify(tempFiles)
         })
       )
-      setSelectedFiles([])
+      files = (await saveFiles(currFiles, messageId)) || []
     }
 
     // Submit and get response message
-    const valueWithFiles = value || 'Please look at these files'
-    await submitUserMessage(messageId, valueWithFiles, files)
+    await submitUserMessage(messageId, value, files)
   }
 
   React.useEffect(() => {
