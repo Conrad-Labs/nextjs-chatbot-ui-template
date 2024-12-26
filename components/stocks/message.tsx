@@ -10,6 +10,9 @@ import remarkMath from 'remark-math'
 import { StreamableValue } from 'ai/rsc'
 import { useStreamableText } from '@/lib/hooks/use-streamable-text'
 import { ChatMessage } from '@/lib/redux/slice/chat.slice'
+import FileLayout from '../file-layout'
+import { Citation } from '@/lib/types'
+import CitationsPopover from '../citations-popover'
 
 // Different types of message bubbles.
 
@@ -29,25 +32,11 @@ export function UserMessage({ content }: { content: ChatMessage }) {
             {files.map((file: any, index: any) => {
               return (
                 <div key={index} className="flex items-start gap-4">
-                  {file.type && file.type.startsWith('image') ? (
-                    <img
-                      src={file.previewUrl}
-                      alt={file.name}
-                      className="w-32 h-32 sm:rounded-md sm:border sm:bg-background sm:shadow-md"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2 h-32 sm:rounded-md sm:border sm:bg-background sm:shadow-md">
-                      <div className="m-4">
-                        <IconPDF className="w-12 h-12" />
-                        <div className="flex flex-col">
-                          <span className="text-sm">{file.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {file.name}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <FileLayout
+                    fileType={file.type}
+                    name={file.filename}
+                    previewUrl={file.previewUrl}
+                  />
                 </div>
               )
             })}
@@ -63,10 +52,12 @@ export function UserMessage({ content }: { content: ChatMessage }) {
 
 export function BotMessage({
   content,
-  className
+  className,
+  citations
 }: {
   content: string | StreamableValue<string>
   className?: string
+  citations?: Citation[]
 }) {
   const text = useStreamableText(content)
 
@@ -117,6 +108,9 @@ export function BotMessage({
         >
           {text}
         </MemoizedReactMarkdown>
+        {citations && citations.length > 0 && (
+          <CitationsPopover citations={citations} />
+        )}
       </div>
     </div>
   )
