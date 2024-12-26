@@ -135,9 +135,10 @@ export function PromptForm({
     if (files && files.length > 0) {
       try {
         for (const file of files) {
+          const purpose = 'assistants'
           const createdFile = await openai.files.create({
             file: file.fileObj,
-            purpose: 'assistants'
+            purpose
           })
 
           if (createdFile && createdFile.id) {
@@ -152,14 +153,15 @@ export function PromptForm({
         console.error(error)
       }
     }
-    const valueWithFiles = value || 'Please analyze these files'
+    const valueWithFiles = 'Please analyze these files'
+    const toolType = 'file_search'
     await openai.beta.threads.messages.create(currentThreadId, {
       role: Roles.user,
-      content: valueWithFiles,
+      content: value || valueWithFiles,
       attachments: fileIds.map(file_id => {
         return {
           file_id,
-          tools: [{ type: 'file_search' }]
+          tools: [{ type: toolType }]
         }
       })
     })
