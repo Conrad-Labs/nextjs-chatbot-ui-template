@@ -12,17 +12,25 @@ import {
 } from '@/components/ui/tooltip'
 import { useEnterSubmit } from '@/lib/hooks/use-enter-submit'
 import { nanoid } from 'nanoid'
-import { Session, FileData } from '@/lib/types'
+import { Session, FileData, Citation } from '@/lib/types'
 import { Chat } from '@/lib/types'
 import { getChat, saveChat } from '@/app/actions'
-import { addMessage, Roles, setThreadId } from '@/lib/redux/slice/chat.slice'
+import {
+  addMessage,
+  Roles,
+  setThreadId,
+  updateFiles
+} from '@/lib/redux/slice/chat.slice'
 import { useDispatch, useSelector } from 'react-redux'
 import OpenAI from 'openai'
 import FileUploadPopover from './file-upload-popover'
 import FilePreview from './file-preview'
+import { toast } from 'sonner'
+import VectorStorePopover from './vector-store-popover'
 
 const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
 const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
+const openAIVectorStoreId = process.env.NEXT_PUBLIC_VECTOR_STORE_ID
 
 export function PromptForm({
   input,
@@ -47,6 +55,22 @@ export function PromptForm({
   const [selectedFiles, setSelectedFiles] = React.useState<FileData[]>([])
   const [isAssistantRunning, setIsAssistantRunning] =
     React.useState<boolean>(false)
+  const [vectorStoreFiles, setVectorStoreFiles] = React.useState<any[]>([])
+
+  const retrieveVectorStoreFiles = async () => {
+    if (openAIVectorStoreId) {
+      const vectorStoreData =
+        await openai.beta.vectorStores.files.list(openAIVectorStoreId)
+
+      const files = await Promise.all(
+        vectorStoreData.data.map(async fileData => {
+          const file = await openai.files.retrieve(fileData.id)
+          return file
+        })
+      )
+      setVectorStoreFiles(files)
+    }
+  }
 
   const saveFiles = async (files: FileData[], messageId: string) => {
     const fileBlobs: any[] = []
@@ -65,17 +89,22 @@ export function PromptForm({
           throw new Error(error)
         } else {
           const value = await response.json()
-          console.log(`Saved uploaded files successfully: ${value}`)
+          const success = `Saved uploaded files successfully: `
+          console.log(success, value)
           fileBlobs.push({
+            filename: file.file.name,
             name: value.pathname,
-            previewUrl: value.downloadUrl,
-            type: value.contentType
+            previewUrl: value.url,
+            type: value.contentType,
+            fileObj: file.file,
+            downloadUrl: value.downloadUrl
           })
         }
       }
       return fileBlobs
-    } catch (error) {
-      console.error('Error saving file:', error)
+    } catch (e) {
+      const error = `Error saving file: ${e}`
+      console.error(error)
     }
   }
 
@@ -90,13 +119,14 @@ export function PromptForm({
       files
     )
 
-    const { assistantMessageId, assistantResponse } =
-      await getAssistantResponse(currentThreadId, value)
+    const { assistantMessageId, assistantResponse, citations } =
+      await getAssistantResponse(currentThreadId, value, files)
 
     const assistantMessage = {
       id: assistantMessageId,
       message: assistantResponse,
-      role: Roles.assistant
+      role: Roles.assistant,
+      citations
     }
 
     chat.messages
@@ -116,11 +146,42 @@ export function PromptForm({
 
   const getAssistantResponse = async (
     currentThreadId: string,
-    value: string
+    value: string,
+    files: any[]
   ) => {
+    const fileIds = []
+    if (files && files.length > 0) {
+      try {
+        for (const file of files) {
+          const purpose = 'assistants'
+          const createdFile = await openai.files.create({
+            file: file.fileObj,
+            purpose
+          })
+
+          if (createdFile && createdFile.id) {
+            fileIds.push(createdFile.id)
+          } else {
+            const error = `An error occurred getting the created file ID for upload: ${createdFile}`
+            console.error(error)
+          }
+        }
+      } catch (e) {
+        const error = `An error occurred uploading files to the assistant: ${e}`
+        console.error(error)
+      }
+    }
+    const valueWithFiles = 'Please analyze these files'
+    const toolType = 'file_search'
     await openai.beta.threads.messages.create(currentThreadId, {
       role: Roles.user,
-      content: value
+      content: value || valueWithFiles,
+      attachments: fileIds.map(file_id => {
+        return {
+          file_id,
+          tools: [{ type: toolType }]
+        }
+      })
     })
 
     const stream = await openai.beta.threads.runs.stream(currentThreadId, {
@@ -130,28 +191,75 @@ export function PromptForm({
 
     let assistantResponse = ''
     const newAssistantChatId = nanoid()
-    const event = 'thread.message.delta'
+    const delta = 'thread.message.delta'
+    const completed = 'thread.message.completed'
+    let citations: Citation[] = []
 
     for await (const message of stream) {
-      if (message.event === event && message.data.delta.content) {
+      if (message.event === delta && message.data.delta.content) {
         const text = (message.data.delta.content[0] as any).text.value
           ? (message.data.delta.content[0] as any).text.value
           : ''
         assistantResponse += text
+        const annotations = (message.data.delta.content[0] as any).text
+          .annotations
+
+        if (annotations && annotations.length > 0) {
+          for (let annotation of annotations) {
+            const trimmedText = annotation.text
+            assistantResponse = assistantResponse.replace(
+              trimmedText,
+              ` [${annotation.index + 1}]`
+            )
+          }
+        }
 
         dispatch(
           addMessage({
             id: newAssistantChatId,
             message: assistantResponse,
-            role: Roles.assistant
+            role: Roles.assistant,
+            citations
           })
         )
+      } else if (message.event === completed) {
+        const text = (message.data.content[0] as any).text
+        const { annotations } = text
+        let index = 0
+        for (let annotation of annotations) {
+          const file_info = await openai.files.retrieve(
+            annotation.file_citation.file_id
+          )
+          const file_name = file_info.filename
+          const annotation_details = {
+            index: index + 1,
+            text: `[${annotation.text}]`,
+            file_name: file_name,
+            start_index: annotation.start_index,
+            end_index: annotation.end_index
+          }
+          citations = [...citations, annotation_details]
+          index++
+        }
+        if (citations.length > 0) {
+          assistantResponse += '\n\n'
+        }
       }
     }
 
+    dispatch(
+      addMessage({
+        id: newAssistantChatId,
+        message: assistantResponse,
+        role: Roles.assistant,
+        citations
+      })
+    )
+
     return {
       assistantMessageId: newAssistantChatId,
-      assistantResponse: assistantResponse
+      assistantResponse: assistantResponse,
+      citations
     }
   }
 
@@ -220,6 +328,14 @@ export function PromptForm({
     )
   }
 
+  const showToast = (description: string, duration?: number) => {
+    const title = '🤖 is thinking…'
+    return toast(title, {
+      description,
+      duration: duration ? duration : 4000
+    })
+  }
+
   const handleSubmit = async (event: any) => {
     event.preventDefault()
     setIsAssistantRunning(true)
@@ -231,11 +347,18 @@ export function PromptForm({
     }
 
     const value = input.trim()
-    setInput('')
-    if (!value && selectedFiles.length === 0) return
+    if (!value && selectedFiles.length === 0) {
+      setIsAssistantRunning(false)
+      return
+    }
 
     let files: any[] = []
+    const toastMessage =
+      'The AI is hard at work crafting your response, this will only take a moment!'
+
     if (selectedFiles.length === 0) {
+      showToast(toastMessage, Infinity)
+      setInput('')
       dispatch(addMessage({ id: messageId, message: value, role: Roles.user }))
     } else {
       const currFiles = selectedFiles.map(fileData => {
@@ -245,22 +368,45 @@ export function PromptForm({
           previewUrl: fileData.previewUrl
         } as FileData
       })
-      files = (await saveFiles(currFiles, messageId)) || []
+      const tempFiles = currFiles.map(file => {
+        return {
+          filename: file.file.name,
+          name: '',
+          previewUrl: file.previewUrl,
+          type: file.file.type,
+          fileObj: file.file,
+          downloadUrl: ''
+        }
+      })
       dispatch(
         addMessage({
           id: messageId,
           message: value,
           role: Roles.user,
+          files: JSON.stringify(tempFiles)
+        })
+      )
+      setInput('')
+      setSelectedFiles([])
+      showToast(toastMessage, Infinity)
+      files = (await saveFiles(currFiles, messageId)) || []
+      dispatch(
+        updateFiles({
+          id: messageId,
           files: JSON.stringify(files)
         })
       )
-      setSelectedFiles([])
     }
 
     // Submit and get response message
-    const valueWithFiles = value || 'Please look at these files'
-    await submitUserMessage(messageId, valueWithFiles, files)
+    toast.dismiss()
+    await submitUserMessage(messageId, value, files)
+    toast.dismiss()
   }
+
+  React.useEffect(() => {
+    retrieveVectorStoreFiles()
+  }, [])
 
   React.useEffect(() => {
     if (inputRef.current) {
@@ -284,6 +430,13 @@ export function PromptForm({
 
         <div className="flex space-between items-center mt-auto">
           <div className="left-0 top-[14px] size-8 rounded-full bg-background p-0 sm:left-4">
+            <VectorStorePopover
+              files={vectorStoreFiles}
+              openai={openai}
+              refreshFiles={retrieveVectorStoreFiles}
+            />
+          </div>
+          <div className="left-0 top-[14px] size-8 rounded-full bg-background p-0 sm:left-4 ml-2">
             <FileUploadPopover
               onFileSelect={handleFileSelect}
               disabled={isAssistantRunning || messages.length === 1}
