@@ -26,9 +26,11 @@ import OpenAI from 'openai'
 import FileUploadPopover from './file-upload-popover'
 import FilePreview from './file-preview'
 import { toast } from 'sonner'
+import VectorStorePopover from './vector-store-popover'
 
 const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
 const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
+const openAIVectorStoreId = process.env.NEXT_PUBLIC_VECTOR_STORE_ID
 
 export function PromptForm({
   input,
@@ -53,6 +55,22 @@ export function PromptForm({
   const [selectedFiles, setSelectedFiles] = React.useState<FileData[]>([])
   const [isAssistantRunning, setIsAssistantRunning] =
     React.useState<boolean>(false)
+  const [vectorStoreFiles, setVectorStoreFiles] = React.useState<any[]>([])
+
+  const retrieveVectorStoreFiles = async () => {
+    if (openAIVectorStoreId) {
+      const vectorStoreData =
+        await openai.beta.vectorStores.files.list(openAIVectorStoreId)
+
+      const files = await Promise.all(
+        vectorStoreData.data.map(async fileData => {
+          const file = await openai.files.retrieve(fileData.id)
+          return file
+        })
+      )
+      setVectorStoreFiles(files)
+    }
+  }
 
   const saveFiles = async (files: FileData[], messageId: string) => {
     const fileBlobs: any[] = []
@@ -387,6 +405,10 @@ export function PromptForm({
   }
 
   React.useEffect(() => {
+    retrieveVectorStoreFiles()
+  }, [])
+
+  React.useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus()
     }
@@ -408,6 +430,13 @@ export function PromptForm({
 
         <div className="flex space-between items-center mt-auto">
           <div className="left-0 top-[14px] size-8 rounded-full bg-background p-0 sm:left-4">
+            <VectorStorePopover
+              files={vectorStoreFiles}
+              openai={openai}
+              refreshFiles={retrieveVectorStoreFiles}
+            />
+          </div>
+          <div className="left-0 top-[14px] size-8 rounded-full bg-background p-0 sm:left-4 ml-2">
             <FileUploadPopover
               onFileSelect={handleFileSelect}
               disabled={isAssistantRunning || messages.length === 1}
