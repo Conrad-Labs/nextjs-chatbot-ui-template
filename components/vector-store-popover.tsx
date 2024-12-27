@@ -8,13 +8,7 @@ import {
   IconFolder,
   IconSpinner
 } from '@/components/ui/icons'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from './ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { DialogTrigger } from '@radix-ui/react-dialog'
 import OpenAI from 'openai'
 import { toast } from 'sonner'
@@ -113,16 +107,16 @@ function VectorStorePopover({
   const renderFileList = () => {
     if (files.length === 0) {
       return (
-        <p className="text-sm text-muted-foreground text-center">
+        <div className="text-sm text-muted-foreground text-center">
           No files uploaded.
-        </p>
+        </div>
       )
     }
 
     return (
-      <ul className="space-y-4">
+      <div className="space-y-4">
         {files.map(file => (
-          <li
+          <div
             key={file.id}
             className="flex items-center justify-between border border-border rounded-md p-4 shadow-sm bg-background"
           >
@@ -137,7 +131,6 @@ function VectorStorePopover({
                 </p>
               </div>
             </div>
-
             <Button
               variant="destructive"
               size="sm"
@@ -145,9 +138,9 @@ function VectorStorePopover({
             >
               Delete
             </Button>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     )
   }
 
@@ -164,7 +157,6 @@ function VectorStorePopover({
             <span className="sr-only">View Vector Store</span>
           </Button>
         </DialogTrigger>
-
         <DialogContent className="p-6 rounded-lg shadow-md bg-background">
           <DialogHeader className="flex justify-center items-center">
             <DialogTitle className="text-lg font-bold mt-2">
@@ -172,7 +164,7 @@ function VectorStorePopover({
             </DialogTitle>
           </DialogHeader>
 
-          <DialogDescription className="p-2">
+          <div className="p-2">
             <div className="flex flex-row items-center justify-between p-4 pt-0">
               <span className="text-md font-semibold">Existing Files:</span>
 
@@ -200,7 +192,7 @@ function VectorStorePopover({
             <div className="overflow-y-auto h-[15rem] pr-2">
               {renderFileList()}
             </div>
-          </DialogDescription>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -212,7 +204,7 @@ function VectorStorePopover({
                 Confirm Delete
               </DialogTitle>
             </DialogHeader>
-            <DialogDescription>
+            <div>
               <span className="text-sm text-muted-foreground">
                 Are you sure you want to delete{' '}
                 <span className="font-semibold">{fileToDelete?.filename}</span>?
@@ -234,7 +226,7 @@ function VectorStorePopover({
                   Delete
                 </Button>
               </div>
-            </DialogDescription>
+            </div>
           </DialogContent>
         </Dialog>
       )}
