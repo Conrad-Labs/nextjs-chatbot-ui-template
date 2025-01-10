@@ -10,7 +10,7 @@ import {
 import { Citation } from '@/lib/types'
 
 function CitationsPopover({ citations }: { citations: Citation[] }) {
-  if (!citations) return
+  if (!citations || (citations && citations.length === 0)) return
 
   const [isPopoverOpen, setIsPopoverOpen] = useState(false)
 

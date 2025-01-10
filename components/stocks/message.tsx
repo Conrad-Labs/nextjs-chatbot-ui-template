@@ -19,7 +19,11 @@ import CitationsPopover from '../citations-popover'
 export function UserMessage({ content }: { content: ChatMessage }) {
   let files = null
   if (content.files) {
-    files = JSON.parse(content.files)
+    try {
+      files = JSON.parse(content.files)
+    } catch (e) {
+      files = null
+    }
   }
   return (
     <div className="group relative flex items-start md:-ml-12">
