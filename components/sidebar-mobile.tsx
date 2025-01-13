@@ -3,6 +3,7 @@
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetTitle,
   SheetTrigger
 } from '@/components/ui/sheet'
@@ -29,6 +30,7 @@ export function SidebarMobile({ children }: SidebarMobileProps) {
         side="left"
         className="inset-y-0 flex h-auto w-[300px] flex-col p-0"
       >
+        <SheetDescription hidden>Sidebar Menu</SheetDescription>
         <SheetTitle hidden={true}>Sidebar Menu</SheetTitle>
         <Sidebar className="flex">{children}</Sidebar>
       </SheetContent>

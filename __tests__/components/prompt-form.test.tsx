@@ -1,6 +1,5 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { PromptForm } from '@/components/prompt-form'
-import { getChat, saveChat } from '@/app/actions'
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import OpenAI from 'openai'
@@ -288,6 +287,10 @@ describe('PromptForm Component', () => {
       ok: false
     } as Response)
 
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+
     render(
       <PromptForm
         input=""
@@ -312,10 +315,27 @@ describe('PromptForm Component', () => {
       )
     })
 
+    consoleErrorMock.mockRestore()
     jest.restoreAllMocks()
   })
 
   it('disables inputs and buttons when assistant is running', async () => {
+    jest.spyOn(global, 'fetch').mockImplementation(
+      () =>
+        new Promise(resolve => {
+          setTimeout(
+            () =>
+              resolve(
+                new Response(null, {
+                  status: 200,
+                  statusText: 'OK'
+                })
+              ),
+            1000
+          )
+        }) as Promise<Response>
+    )
+
     render(
       <PromptForm
         input="Hello"
@@ -326,10 +346,21 @@ describe('PromptForm Component', () => {
     )
 
     const submitButton = screen.getByRole('button', { name: /send message/i })
-    fireEvent.click(submitButton)
+    const messageInput = screen.getByPlaceholderText('Send a message.')
+
+    act(() => {
+      fireEvent.click(submitButton)
+    })
 
     expect(submitButton).toBeDisabled()
-    expect(screen.getByPlaceholderText('Send a message.')).toBeDisabled()
+    expect(messageInput).toBeDisabled()
+
+    await waitFor(() => {
+      expect(submitButton).not.toBeDisabled()
+      expect(messageInput).not.toBeDisabled()
+    })
+
+    jest.restoreAllMocks()
   })
 
   it('removes selected files', async () => {

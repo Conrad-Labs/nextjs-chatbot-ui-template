@@ -9,7 +9,7 @@ import {
   IconSpinner
 } from '@/components/ui/icons'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
-import { DialogTrigger } from '@radix-ui/react-dialog'
+import { DialogDescription, DialogTrigger } from '@radix-ui/react-dialog'
 import OpenAI from 'openai'
 import { toast } from 'sonner'
 
@@ -158,6 +158,9 @@ function VectorStorePopover({
           </Button>
         </DialogTrigger>
         <DialogContent className="p-6 rounded-lg shadow-md bg-background">
+          <DialogDescription hidden>
+            Update the Vector Store Workspace
+          </DialogDescription>
           <DialogHeader className="flex justify-center items-center">
             <DialogTitle className="text-lg font-bold mt-2">
               Vector Store Workspace
@@ -199,6 +202,9 @@ function VectorStorePopover({
       {isConfirmingDelete && (
         <Dialog open={isConfirmingDelete} onOpenChange={setIsConfirmingDelete}>
           <DialogContent className="p-6 rounded-lg shadow-md bg-background">
+            <DialogDescription hidden>
+              Add/remove files from the vector store
+            </DialogDescription>
             <DialogHeader>
               <DialogTitle className="text-lg font-bold text-red-600">
                 Confirm Delete

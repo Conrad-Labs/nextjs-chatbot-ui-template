@@ -14,11 +14,17 @@ export default async function IndexPage() {
   const session = (await auth()) as Session
   const missingKeys = await getMissingKeys()
 
-  if(!session){
-    redirect("/login")
+  if (!session) {
+    redirect('/login')
   }
 
   return (
-    <Chat initialMessages={[]} id={id} session={session} missingKeys={missingKeys} />
+    <Chat
+      initialMessages={[]}
+      id={id}
+      session={session}
+      missingKeys={missingKeys}
+      threadId={''}
+    />
   )
 }

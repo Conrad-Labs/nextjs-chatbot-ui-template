@@ -116,10 +116,22 @@ describe('Utility Functions', () => {
       expect(getMessageFromCode(ResultCode.UserCreated)).toBe(
         'User created, welcome!'
       )
+      expect(getMessageFromCode(ResultCode.UserAlreadyExists)).toBe(
+        'User already exists, please log in!'
+      )
+      expect(getMessageFromCode(ResultCode.UserLoggedIn)).toBe('Logged in!')
+      expect(getMessageFromCode(ResultCode.InvalidSubmission)).toBe(
+        'Invalid submission, please try again!'
+      )
+      expect(getMessageFromCode(ResultCode.UnknownError)).toBe(
+        'Something went wrong, please try again!'
+      )
     })
 
     it('returns undefined for unknown result codes', () => {
       expect(getMessageFromCode('UNKNOWN')).toBeUndefined()
+      expect(getMessageFromCode(null as any)).toBeUndefined()
+      expect(getMessageFromCode(undefined as any)).toBeUndefined()
     })
   })
 

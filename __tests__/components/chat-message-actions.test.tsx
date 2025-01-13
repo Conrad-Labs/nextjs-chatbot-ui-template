@@ -68,6 +68,25 @@ describe('ChatMessageActions', () => {
     expect(screen.getByTestId('icon-check')).toBeInTheDocument()
   })
 
+  it('does not trigger copy action if already copied', () => {
+    const mockCopyToClipboard = jest.fn()
+    const mockUseCopyToClipboard = jest.requireMock(
+      '@/lib/hooks/use-copy-to-clipboard'
+    )
+
+    mockUseCopyToClipboard.useCopyToClipboard.mockReturnValue({
+      isCopied: true,
+      copyToClipboard: mockCopyToClipboard
+    })
+
+    render(<ChatMessageActions message={message} />)
+
+    const copyButton = screen.getByTestId('copy-button')
+    fireEvent.click(copyButton)
+
+    expect(mockCopyToClipboard).not.toHaveBeenCalled()
+  })
+
   it('resets icon after timeout', async () => {
     const mockUseCopyToClipboard = jest.requireMock(
       '@/lib/hooks/use-copy-to-clipboard'

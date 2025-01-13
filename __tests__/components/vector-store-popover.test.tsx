@@ -166,11 +166,12 @@ describe('VectorStorePopover', () => {
     const mockFile = new File(['test content'], 'test.txt', {
       type: 'text/plain'
     })
-
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
     ;(mockOpenAI.files.create as jest.Mock).mockRejectedValueOnce(
       new Error('Upload failed')
     )
-
     render(
       <VectorStorePopover
         files={files}
@@ -183,12 +184,10 @@ describe('VectorStorePopover', () => {
       name: /view vector store/i
     })
     fireEvent.click(viewStoreButton)
-
     const uploadButton = screen.getByRole('button', {
       name: /upload new file/i
     })
     fireEvent.click(uploadButton)
-
     const inputElement = document.querySelector(
       'input[type="file"]'
     ) as HTMLInputElement
@@ -207,6 +206,7 @@ describe('VectorStorePopover', () => {
     )
 
     expect(mockRefreshFiles).not.toHaveBeenCalled()
+    consoleErrorMock.mockRestore()
   })
 
   it('handles file deletions successfully', async () => {
@@ -277,6 +277,9 @@ describe('VectorStorePopover', () => {
 
   it('handles file deletion errors', async () => {
     const files = [{ id: '1', filename: 'file1.txt', bytes: 1024 }]
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
 
     ;(
       mockOpenAI.beta.vectorStores.files.del as jest.Mock
@@ -315,5 +318,6 @@ describe('VectorStorePopover', () => {
       })
     )
     expect(mockRefreshFiles).not.toHaveBeenCalled()
+    consoleErrorMock.mockRestore()
   })
 })
