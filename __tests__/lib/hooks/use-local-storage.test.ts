@@ -3,6 +3,8 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 
 describe('useLocalStorage', () => {
   beforeEach(() => {
+    localStorage.clear()
+    jest.clearAllMocks()
     const localStorageMock = (() => {
       let store: Record<string, string> = {}
 
@@ -23,10 +25,6 @@ describe('useLocalStorage', () => {
     Object.defineProperty(window, 'localStorage', {
       value: localStorageMock
     })
-  })
-
-  afterEach(() => {
-    jest.clearAllMocks()
   })
 
   it('should initialize with the value from localStorage if it exists', () => {
