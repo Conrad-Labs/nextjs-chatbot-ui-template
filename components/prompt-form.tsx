@@ -61,16 +61,23 @@ export function PromptForm({
 
   const retrieveVectorStoreFiles = async () => {
     if (openAIVectorStoreId) {
-      const vectorStoreData =
-        await openai.beta.vectorStores.files.list(openAIVectorStoreId)
+      try {
+        const vectorStoreData =
+          await openai.beta.vectorStores.files.list(openAIVectorStoreId)
 
-      const files = await Promise.all(
-        vectorStoreData.data.map(async fileData => {
-          const file = await openai.files.retrieve(fileData.id)
-          return file
-        })
-      )
-      setVectorStoreFiles(files)
+        const files = await Promise.all(
+          vectorStoreData.data.map(async fileData => {
+            const file = await openai.files.retrieve(fileData.id)
+            return file
+          })
+        )
+        setVectorStoreFiles(files)
+      } catch (e) {
+        const error = `Unable to save uploaded files to Vercel Blob: ${e}`
+        const title = 'Something went wrong...'
+        toast.error(title, { description: error })
+        router.push('/')
+      }
     }
   }
 
@@ -167,11 +174,15 @@ export function PromptForm({
             fileIds.push(createdFile.id)
           } else {
             const error = `An error occurred getting the created file ID for upload: ${createdFile}`
+            const title = 'Something went wrong...'
+            toast.error(title, { description: error })
             console.error(error)
           }
         }
       } catch (e) {
         const error = `An error occurred uploading files to the assistant: ${e}`
+        const title = 'Something went wrong...'
+        toast.error(title, { description: error })
         console.error(error)
       }
     }

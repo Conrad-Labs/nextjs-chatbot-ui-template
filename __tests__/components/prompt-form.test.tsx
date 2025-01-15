@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import OpenAI from 'openai'
 import { useRouter } from 'next/navigation'
+import { getChat, saveChat } from '@/app/actions'
 
 jest.mock('@/app/actions', () => ({
   getChat: jest.fn(() => ({
@@ -106,7 +107,7 @@ jest.mock('openai', () => {
         }
       },
       threads: {
-        create: jest.fn(),
+        create: jest.fn().mockResolvedValue({ id: 'thread456' }),
         messages: {
           create: jest.fn()
         },
@@ -141,10 +142,11 @@ describe('PromptForm Component', () => {
   const mockSession = { user: { id: '123', email: 'test.user@gmail.com' } }
   const mockId = 'chat123'
   const mockThreadId = 'thread123'
-  let mockOpenAIInstance: any
+  let mockOpenAIInstance = new OpenAI()
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.resetModules()
     ;(useDispatch as unknown as jest.Mock).mockReturnValue(mockDispatch)
     mockUseSelector({
       chat: {
@@ -152,20 +154,10 @@ describe('PromptForm Component', () => {
         threadId: mockThreadId
       }
     })
-
-    mockOpenAIInstance = new OpenAI()
-    ;(mockOpenAIInstance.files.create as jest.Mock).mockResolvedValue({
-      id: 'file123'
-    })
-    ;(
-      mockOpenAIInstance.beta.vectorStores.files.list as jest.Mock
-    ).mockResolvedValue({
-      data: [{ id: 'file123' }]
-    })
-    ;(mockOpenAIInstance.files.retrieve as jest.Mock).mockResolvedValue({
-      id: 'file123',
-      filename: 'test.txt'
-    })
+    jest
+      // @ts-ignore
+      .spyOn(OpenAI.prototype, 'constructor')
+      .mockImplementation(() => mockOpenAIInstance as any)
   })
 
   it('renders the form correctly', async () => {
@@ -282,7 +274,147 @@ describe('PromptForm Component', () => {
     })
   })
 
-  it('handles file upload errors gracefully', async () => {
+  it('removes selected files', async () => {
+    render(
+      <PromptForm
+        input=""
+        setInput={mockSetInput}
+        session={mockSession}
+        id={mockId}
+      />
+    )
+
+    const uploadButton = screen.getByText('Upload')
+    fireEvent.click(uploadButton)
+
+    const removeFileButton = screen.getByRole('button', { name: /remove/i })
+    fireEvent.click(removeFileButton)
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('file-preview')).not.toBeInTheDocument()
+    })
+  })
+
+  it('handles OpenAI file API errors during upload', async () => {
+    ;(mockOpenAIInstance.files.create as jest.Mock).mockRejectedValueOnce(
+      new Error('Error uploading files to OpenAI')
+    )
+    render(
+      <PromptForm
+        input=""
+        setInput={mockSetInput}
+        session={mockSession}
+        id={mockId}
+      />
+    )
+
+    const uploadButton = screen.getByText('Upload')
+    fireEvent.click(uploadButton)
+
+    const submitButton = screen.getByRole('button', { name: /send message/i })
+    fireEvent.click(submitButton)
+
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        'Something went wrong...',
+        expect.objectContaining({
+          description: expect.any(String)
+        })
+      )
+    })
+  })
+
+  it('handles OpenAI file API corrupted response during upload', async () => {
+    ;(mockOpenAIInstance.files.create as jest.Mock).mockResolvedValueOnce({
+      id: ''
+    })
+    render(
+      <PromptForm
+        input=""
+        setInput={mockSetInput}
+        session={mockSession}
+        id={mockId}
+      />
+    )
+
+    const uploadButton = screen.getByText('Upload')
+    fireEvent.click(uploadButton)
+
+    const submitButton = screen.getByRole('button', { name: /send message/i })
+    fireEvent.click(submitButton)
+
+    const consoleErrorMock = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        'Something went wrong...',
+        expect.objectContaining({
+          description: expect.any(String)
+        })
+      )
+    })
+  })
+
+  it('handles errors in retrieving vector store files', async () => {
+    ;(
+      mockOpenAIInstance.beta.vectorStores.files.list as jest.Mock
+    ).mockRejectedValueOnce(new Error('Vector store error'))
+
+    render(
+      <PromptForm
+        input=""
+        setInput={jest.fn()}
+        session={{ user: { id: '123', email: 'test@example.com' } }}
+        id="mockId"
+      />
+    )
+
+    const refreshButton = screen.getByText('Refresh Files')
+    fireEvent.click(refreshButton)
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        'Something went wrong...',
+        expect.objectContaining({
+          description: expect.any(String)
+        })
+      )
+    })
+  })
+
+  it('creates a new chat when the thread does not exist', async () => {
+    mockUseSelector({
+      chat: {
+        messages: [],
+        threadId: ''
+      }
+    })
+    render(
+      <PromptForm
+        input="Testing creation of new chat"
+        setInput={mockSetInput}
+        session={mockSession}
+        id={mockId}
+      />
+    )
+
+    const submitButton = screen.getByRole('button', { name: /send message/i })
+    fireEvent.click(submitButton)
+
+    await waitFor(() => {
+      expect(saveChat).toHaveBeenCalledWith(
+        expect.objectContaining({ threadId: 'thread456' })
+      )
+    })
+  })
+
+  it('handles file upload errors to vercel blob gracefully', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: false
     } as Response)
@@ -307,6 +439,7 @@ describe('PromptForm Component', () => {
     fireEvent.click(submitButton)
 
     await waitFor(() => {
+      expect(mockDispatch).toHaveBeenCalled()
       expect(toast.error).toHaveBeenCalledWith(
         'Something went wrong...',
         expect.objectContaining({
@@ -361,26 +494,5 @@ describe('PromptForm Component', () => {
     })
 
     jest.restoreAllMocks()
-  })
-
-  it('removes selected files', async () => {
-    render(
-      <PromptForm
-        input=""
-        setInput={mockSetInput}
-        session={mockSession}
-        id={mockId}
-      />
-    )
-
-    const uploadButton = screen.getByText('Upload')
-    fireEvent.click(uploadButton)
-
-    const removeFileButton = screen.getByRole('button', { name: /remove/i })
-    fireEvent.click(removeFileButton)
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('file-preview')).not.toBeInTheDocument()
-    })
   })
 })
