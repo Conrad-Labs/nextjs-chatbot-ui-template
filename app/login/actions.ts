@@ -67,6 +67,11 @@ export async function authenticate(
             resultCode: ResultCode.UnknownError
           }
       }
+    } else {
+      return {
+        type: ErrorMessage.message,
+        resultCode: ResultCode.UnknownError
+      }
     }
   }
 }

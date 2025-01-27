@@ -27,6 +27,7 @@ import FileUploadPopover from './file-upload-popover'
 import FilePreview from './file-preview'
 import { toast } from 'sonner'
 import VectorStorePopover from './vector-store-popover'
+import { useRouter } from 'next/navigation'
 
 const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY
 const openAIAssistantId = process.env.NEXT_PUBLIC_ASSISTANT_ID
@@ -50,6 +51,7 @@ export function PromptForm({
   const { formRef, onKeyDown } = useEnterSubmit()
   const inputRef = React.useRef<HTMLTextAreaElement>(null)
   const dispatch = useDispatch()
+  const router = useRouter()
   const messages = useSelector((state: any) => state.chat.messages)
   const threadId = useSelector((state: any) => state.chat.threadId)
   const [selectedFiles, setSelectedFiles] = React.useState<FileData[]>([])
@@ -59,16 +61,23 @@ export function PromptForm({
 
   const retrieveVectorStoreFiles = async () => {
     if (openAIVectorStoreId) {
-      const vectorStoreData =
-        await openai.beta.vectorStores.files.list(openAIVectorStoreId)
+      try {
+        const vectorStoreData =
+          await openai.beta.vectorStores.files.list(openAIVectorStoreId)
 
-      const files = await Promise.all(
-        vectorStoreData.data.map(async fileData => {
-          const file = await openai.files.retrieve(fileData.id)
-          return file
-        })
-      )
-      setVectorStoreFiles(files)
+        const files = await Promise.all(
+          vectorStoreData.data.map(async fileData => {
+            const file = await openai.files.retrieve(fileData.id)
+            return file
+          })
+        )
+        setVectorStoreFiles(files)
+      } catch (e) {
+        const error = `Unable to save uploaded files to Vercel Blob: ${e}`
+        const title = 'Something went wrong...'
+        toast.error(title, { description: error })
+        router.push('/')
+      }
     }
   }
 
@@ -86,6 +95,8 @@ export function PromptForm({
 
         if (!response.ok) {
           const error = `Unable to save uploaded files. Response is ${response}`
+          const title = 'Something went wrong...'
+          toast.error(title, { description: error })
           throw new Error(error)
         } else {
           const value = await response.json()
@@ -163,11 +174,15 @@ export function PromptForm({
             fileIds.push(createdFile.id)
           } else {
             const error = `An error occurred getting the created file ID for upload: ${createdFile}`
+            const title = 'Something went wrong...'
+            toast.error(title, { description: error })
             console.error(error)
           }
         }
       } catch (e) {
         const error = `An error occurred uploading files to the assistant: ${e}`
+        const title = 'Something went wrong...'
+        toast.error(title, { description: error })
         console.error(error)
       }
     }
@@ -298,6 +313,9 @@ export function PromptForm({
       chat = (await getChat(id as string, session?.user?.id as string)) as Chat
       if (!chat) {
         const error = 'Chat not found!'
+        const title = 'Something went wrong...'
+        toast.error(title, { description: error })
+        router.push('/')
         throw new Error(error)
       }
 
