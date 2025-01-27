@@ -47,3 +47,11 @@ export interface FileData {
   name?: string
   fileType: string
 }
+
+export interface Citation {
+  index: number
+  text: string
+  file_name: string
+  start_index: number
+  end_index: number
+}

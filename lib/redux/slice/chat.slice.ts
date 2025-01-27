@@ -1,5 +1,5 @@
+import { Citation } from '@/lib/types';
 import { createSlice } from '@reduxjs/toolkit';
-import { FileData } from '@/lib/types';
 
 export enum Roles {
   user = 'user',
@@ -11,6 +11,7 @@ export interface ChatMessage {
   message: string,
   role?: Roles
   files?: string
+  citations?: Citation[]
 }
 
 const initialState: { messages: ChatMessage[], threadId: string } = { messages: [], threadId: '' };
@@ -20,13 +21,13 @@ const chatSlice = createSlice({
   initialState,
   reducers: {
     addMessage: (state, action) => {
-      const { id, message, role, files } = action.payload;
+      const { id, message, role, files, citations } = action.payload;
       const existingMessageIndex = state.messages.findIndex((msg) => msg.id === id);
       if (existingMessageIndex !== -1) {
         // update message for streaming
         state.messages = [
           ...state.messages.slice(0, existingMessageIndex),
-          { ...state.messages[existingMessageIndex], message },
+          { ...state.messages[existingMessageIndex], message, citations },
           ...state.messages.slice(existingMessageIndex + 1),
         ];
       } else {
@@ -35,7 +36,8 @@ const chatSlice = createSlice({
           id,
           message,
           role,
-          files
+          files,
+          citations
         })
       }
     },
@@ -44,9 +46,14 @@ const chatSlice = createSlice({
     },
     removeMessages: (state) => {
       state.messages = []
+    },
+    updateFiles: (state, action) => {
+      const { id, files } = action.payload
+      const existingMessageIndex = state.messages.findIndex((msg) => msg.id === id);
+      state.messages[existingMessageIndex] = {...state.messages[existingMessageIndex], files}
     }
   },
 });
 
-export const { addMessage, setThreadId, removeMessages } = chatSlice.actions;
+export const { addMessage, setThreadId, removeMessages, updateFiles } = chatSlice.actions;
 export default chatSlice.reducer;
