@@ -22,6 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger
 } from '@/components/ui/tooltip'
+import { ErrorMessage } from '@/app/constants'
 
 interface SidebarActionsProps {
   chat: Chat
