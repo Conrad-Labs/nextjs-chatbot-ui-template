@@ -6,15 +6,15 @@ describe('EmptyScreen', () => {
     render(<EmptyScreen />)
 
     expect(
-      screen.getByText('Welcome to Uptime Institute AI Chatbot!')
+      screen.getByText('Welcome to the Conrad Labs AI Chatbot!')
     ).toBeInTheDocument()
     expect(
       screen.getByText(
-        /The Uptime Institute is a globally recognized organization that focuses on improving data center performance/
+        /At Conrad Labs, we specialize in building cutting-edge, user-focused software solutions/
       )
     ).toBeInTheDocument()
     const container = screen
-      .getByText('Welcome to Uptime Institute AI Chatbot!')
+      .getByText('Welcome to the Conrad Labs AI Chatbot!')
       .closest('div')
     expect(container).toHaveClass(
       'flex flex-col gap-2 rounded-lg border bg-background p-8'
